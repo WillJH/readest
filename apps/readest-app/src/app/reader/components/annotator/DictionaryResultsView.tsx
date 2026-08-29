@@ -15,6 +15,7 @@ import { buildLookupCandidates } from '@/services/dictionaries/lookupCandidates'
 import { isTauriAppPlatform } from '@/services/environment';
 import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 import type { DefinitionSnapshot } from '@/types/vocabulary';
+import { sanitizeHtml } from '@/utils/sanitize';
 import {
   getBuiltinWebSearch,
   substituteUrlTemplate,
@@ -37,6 +38,26 @@ interface CardState {
 /** Identity of one lookup: word + language, used to match cards to results. */
 function loadKeyOf(word: string, langCode?: string): string {
   return `${word}::${langCode || ''}`;
+}
+
+/**
+ * Serialized HTML of a rendered dictionary card. MDict renders into a shadow
+ * root (invisible to the host's `innerHTML`), StarDict/Wiktionary into the
+ * light DOM — take the first shadow tree when present, else the container's
+ * own markup.
+ */
+function captureContainerHtml(container: HTMLElement): string | null {
+  const findShadowHtml = (el: Element): string | null => {
+    if (el.shadowRoot?.innerHTML) return el.shadowRoot.innerHTML;
+    for (const child of Array.from(el.children)) {
+      const found = findShadowHtml(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  const raw = findShadowHtml(container) ?? container.innerHTML;
+  const html = sanitizeHtml(raw).trim();
+  return html || null;
 }
 
 export interface UseDictionaryResultsArgs {
@@ -342,20 +363,21 @@ export function useDictionaryResults({
 
   // --- Vocabulary capture -------------------------------------------------
   // Providers render straight into the DOM, so the only faithful "definition
-  // snapshot" is the visible text of each loaded card's container at capture
-  // time — exactly what the user saw when they saved the word.
+  // snapshot" is the card's rendered content at capture time — the text for
+  // search and list previews, and its sanitized HTML to keep the dictionary's
+  // own typography (bold headwords, phonetics, tables) in the detail view.
   const collectDefinitionSnapshots = useCallback((): DefinitionSnapshot[] => {
     const snapshots: DefinitionSnapshot[] = [];
     for (const [id, card] of Object.entries(cards)) {
       if (card.state !== 'loaded' || card.loadKey !== loadKey) continue;
       const container = containerRefs.current.get(id);
       const content = (container?.innerText ?? container?.textContent)?.trim();
-      if (!content) continue;
+      if (!content || !container) continue;
       const source =
         card.outcome?.ok && card.outcome.sourceLabel
           ? card.outcome.sourceLabel
           : (definitionProviders.find((p) => p.id === id)?.label ?? id);
-      snapshots.push({ source, content });
+      snapshots.push({ source, content, html: captureContainerHtml(container) ?? undefined });
     }
     return snapshots;
   }, [cards, loadKey, definitionProviders]);

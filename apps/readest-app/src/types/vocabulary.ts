@@ -9,6 +9,12 @@ export interface DefinitionSnapshot {
   source: string;
   /** Text snapshot of the rendered entry at capture time. */
   content: string;
+  /**
+   * Sanitized HTML snapshot of the rendered entry, when available — keeps the
+   * dictionary's typography (bold headwords, italic phonetics, tables). Older
+   * records without it fall back to `content` as plain text.
+   */
+  html?: string;
 }
 
 export interface VocabularyContext {

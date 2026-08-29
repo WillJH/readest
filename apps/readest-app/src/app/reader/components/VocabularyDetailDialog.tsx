@@ -136,9 +136,23 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
                           </span>
                         )}
                       </div>
-                      <p className='text-base-content/80 max-h-64 overflow-y-auto whitespace-pre-line text-sm'>
-                        {def.content}
-                      </p>
+                      {def.html ? (
+                        <div
+                          className='text-base-content/80 max-h-64 overflow-y-auto text-sm'
+                          // Dictionary snapshots may carry anchors; block
+                          // navigation so following one can't leave the app.
+                          onClick={(e) => {
+                            if ((e.target as Element | null)?.closest?.('a')) {
+                              e.preventDefault();
+                            }
+                          }}
+                          dangerouslySetInnerHTML={{ __html: def.html }}
+                        />
+                      ) : (
+                        <p className='text-base-content/80 max-h-64 overflow-y-auto whitespace-pre-line text-sm'>
+                          {def.content}
+                        </p>
+                      )}
                     </div>
                   </li>
                 ))}
