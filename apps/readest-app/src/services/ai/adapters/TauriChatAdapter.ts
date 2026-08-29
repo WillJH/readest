@@ -212,7 +212,8 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
           }
 
           // Persona precedence: active character's persona > the active
-          // connection's model-specific prompt > built-in companion.
+          // connection's model-specific prompt > built-in companion. The
+          // whole skeleton (constraints included) is the user's template.
           let systemPrompt =
             buildSystemPrompt(
               bookTitle,
@@ -220,6 +221,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
               chunks,
               currentPage,
               character?.prompt || connectionSystemPrompt,
+              settings.systemPromptTemplate,
             ) + buildAvatarProtocol(character?.imageLabels ?? []);
 
           // MCP tools ride the direct-provider path (multi-step so results

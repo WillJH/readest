@@ -43,6 +43,15 @@ export interface AISettings {
   systemPrompt?: string;
 
   /**
+   * User-editable full system-prompt template (placeholders: {{persona}},
+   * {{bookTitle}}, {{authorName}}, {{currentPage}}, {{bookPassages}}).
+   * Absent = DEFAULT_SYSTEM_PROMPT_TEMPLATE. Every rule — including the
+   * anti-spoiler constraints — lives in the template, so the user can see,
+   * change, or remove any of it and restore the default at any time.
+   */
+  systemPromptTemplate?: string;
+
+  /**
    * Standing user-level instructions, appended (LLM-only — never shown in
    * the thread, never persisted with a message) to the latest user message
    * of every turn. E.g. "Answer in Chinese; attach phonetics to English

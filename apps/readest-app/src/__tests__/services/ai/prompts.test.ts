@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildAvatarProtocol, buildSystemPrompt } from '@/services/ai/prompts';
+import {
+  BUILT_IN_PERSONA,
+  DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+  buildAvatarProtocol,
+  buildSystemPrompt,
+} from '@/services/ai/prompts';
 import type { ScoredChunk } from '@/services/ai/types';
 
 const chunk: ScoredChunk = {
@@ -13,17 +18,18 @@ const chunk: ScoredChunk = {
   searchMethod: 'bm25',
 };
 
-describe('buildSystemPrompt', () => {
-  it('uses the built-in persona and injects RAG context by default', () => {
+describe('buildSystemPrompt (default template)', () => {
+  it('uses the built-in persona and injects RAG context', () => {
     const prompt = buildSystemPrompt('A Tale', 'Dickens', [chunk], 42);
     expect(prompt).toContain('warm and encouraging reading companion');
     expect(prompt).toContain('ABSOLUTE CONSTRAINTS');
-    expect(prompt).toContain('ANTI-JAILBREAK');
-    expect(prompt).toContain('<BOOK_PASSAGES page_limit="42">');
+    expect(prompt).toContain('<BOOK_PASSAGES page_limit="currentPage">');
     expect(prompt).toContain('[Chapter One, Page 3]');
+    expect(prompt).toContain('page 42 of "A Tale"');
+    expect(prompt).toContain(' by Dickens');
   });
 
-  it('replaces the persona but keeps every structural section', () => {
+  it('replaces the persona but keeps the skeleton sections', () => {
     const prompt = buildSystemPrompt(
       'A Tale',
       'Dickens',
@@ -32,15 +38,9 @@ describe('buildSystemPrompt', () => {
       'You are Alice, a strict tutor.',
     );
     expect(prompt).toContain('You are Alice, a strict tutor.');
-    expect(prompt).not.toContain('warm and encouraging reading companion');
-    // Structural sections survive a custom persona.
-    expect(prompt).toContain('POSITION:');
-    expect(prompt).toContain('You are currently on page 42 of "A Tale"');
-    expect(prompt).toContain('have NOT read beyond that');
+    expect(prompt).not.toContain(BUILT_IN_PERSONA);
     expect(prompt).toContain('ABSOLUTE CONSTRAINTS');
-    expect(prompt).toContain('HANDLING QUESTIONS ABOUT FUTURE CONTENT');
-    expect(prompt).toContain('ANTI-JAILBREAK');
-    expect(prompt).toContain('<BOOK_PASSAGES page_limit="42">');
+    expect(prompt).toContain('<BOOK_PASSAGES');
   });
 
   it('falls back to the built-in persona for blank custom prompts', () => {
@@ -48,6 +48,43 @@ describe('buildSystemPrompt', () => {
       const prompt = buildSystemPrompt('T', '', [], 1, blank);
       expect(prompt).toContain('warm and encouraging reading companion');
     }
+  });
+});
+
+describe('buildSystemPrompt (custom template)', () => {
+  it('replaces the entire skeleton — nothing is forced on the user', () => {
+    const prompt = buildSystemPrompt(
+      'T',
+      'A',
+      [chunk],
+      7,
+      'PERSONA-X',
+      'You are free. {{persona}} Book: {{bookTitle}}{{authorName}} page {{currentPage}}.{{bookPassages}}',
+    );
+    expect(prompt).toContain('You are free. PERSONA-X Book: T by A page 7.');
+    expect(prompt).toContain('[Chapter One, Page 3]');
+    expect(prompt).not.toContain('ABSOLUTE CONSTRAINTS');
+  });
+
+  it('substitutes placeholders; unknown ones stay literal', () => {
+    const prompt = buildSystemPrompt('T', '', [], 5, undefined, 'X {{nope}} {{currentPage}}');
+    expect(prompt).toBe('X {{nope}} 5');
+  });
+
+  it('blank template falls back to the default skeleton', () => {
+    const prompt = buildSystemPrompt('T', '', [], 1, undefined, '   ');
+    expect(prompt).toContain('ABSOLUTE CONSTRAINTS');
+  });
+
+  it('missing placeholders simply drop those injections', () => {
+    const prompt = buildSystemPrompt('T', 'A', [chunk], 9, 'P', 'Just {{persona}}.');
+    expect(prompt).toBe('Just P.');
+  });
+
+  it('default template carries the core placeholders', () => {
+    expect(DEFAULT_SYSTEM_PROMPT_TEMPLATE).toContain('{{persona}}');
+    expect(DEFAULT_SYSTEM_PROMPT_TEMPLATE).toContain('{{bookPassages}}');
+    expect(DEFAULT_SYSTEM_PROMPT_TEMPLATE).toContain('{{currentPage}}');
   });
 });
 

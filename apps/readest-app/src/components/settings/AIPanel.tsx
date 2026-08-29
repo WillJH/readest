@@ -4,6 +4,7 @@ import {
   PiCheckCircle,
   PiWarningCircle,
   PiArrowsClockwise,
+  PiArrowCounterClockwise,
   PiSpinner,
   PiPlugs,
   PiPlug,
@@ -19,6 +20,7 @@ import {
   type OpenRouterModelInfo,
 } from '@/services/ai/providers/OpenRouterProvider';
 import { DEFAULT_AI_SETTINGS, GATEWAY_MODELS, MODEL_PRICING } from '@/services/ai/constants';
+import { DEFAULT_SYSTEM_PROMPT_TEMPLATE } from '@/services/ai/prompts';
 import type { AISettings, AIProviderName } from '@/services/ai/types';
 import { exportReedyMetricsBundle } from '@/services/reedy/instrumentation';
 import { isTauriAppPlatform } from '@/services/environment';
@@ -140,6 +142,9 @@ const AIPanel: React.FC = () => {
   const [showConnections, setShowConnections] = useState(false);
   const [showMcpServers, setShowMcpServers] = useState(false);
   const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
+  const [systemPromptTemplate, setSystemPromptTemplate] = useState(
+    aiSettings.systemPromptTemplate ?? DEFAULT_SYSTEM_PROMPT_TEMPLATE,
+  );
 
   const isMounted = useRef(false);
   const modelOptions = getModelOptions();
@@ -320,6 +325,19 @@ const AIPanel: React.FC = () => {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInstructions]);
+
+  // Storing the default text itself (rather than clearing) keeps the editor
+  // and the prompt in sync after Restore Default.
+  useEffect(() => {
+    if (!isMounted.current) return;
+    const timer = setTimeout(() => {
+      if (systemPromptTemplate !== (settingsRef.current?.aiSettings?.systemPromptTemplate ?? '')) {
+        saveAiSetting('systemPromptTemplate', systemPromptTemplate);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [systemPromptTemplate]);
 
   // Get the effective model ID to use (either selected or custom)
   const getEffectiveModelId = useCallback(() => {
@@ -827,6 +845,43 @@ const AIPanel: React.FC = () => {
       </BoxedList>
 
       <BoxedList title={_('Prompts')} className={disabledSection}>
+        <div className='flex flex-col gap-2 px-4 py-3'>
+          <div className='flex items-center justify-between gap-2'>
+            <SettingLabel>{_('System Prompt Template')}</SettingLabel>
+            <button
+              type='button'
+              className='btn btn-ghost btn-xs shrink-0'
+              onClick={() => setSystemPromptTemplate(DEFAULT_SYSTEM_PROMPT_TEMPLATE)}
+              disabled={!enabled}
+            >
+              <PiArrowCounterClockwise size={12} />
+              {_('Restore Default')}
+            </button>
+          </div>
+          <textarea
+            className='textarea eink-bordered w-full font-mono text-xs'
+            rows={14}
+            spellCheck={false}
+            value={systemPromptTemplate}
+            onChange={(e) => setSystemPromptTemplate(e.target.value)}
+            disabled={!enabled}
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'The full system prompt, rules included — edit anything. Placeholders: {{persona}} {{bookTitle}} {{authorName}} {{currentPage}} {{bookPassages}}.',
+            )}
+          </span>
+          {!systemPromptTemplate.includes('{{persona}}') && (
+            <span className='text-warning text-xs'>
+              {_('No {{persona}} placeholder — character and connection prompts are ignored.')}
+            </span>
+          )}
+          {!systemPromptTemplate.includes('{{bookPassages}}') && (
+            <span className='text-warning text-xs'>
+              {_('No {{bookPassages}} placeholder — retrieved book context is not injected.')}
+            </span>
+          )}
+        </div>
         <div className='flex flex-col gap-2 px-4 py-3'>
           <SettingLabel>{_('User Instructions (optional)')}</SettingLabel>
           <textarea
