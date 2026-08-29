@@ -200,9 +200,16 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
             }
           }
 
+          // Persona precedence: active character > global system prompt >
+          // built-in companion.
           const systemPrompt =
-            buildSystemPrompt(bookTitle, authorName, chunks, currentPage, character?.prompt) +
-            buildAvatarProtocol(character?.imageLabels ?? []);
+            buildSystemPrompt(
+              bookTitle,
+              authorName,
+              chunks,
+              currentPage,
+              character?.prompt || settings.systemPrompt,
+            ) + buildAvatarProtocol(character?.imageLabels ?? []);
 
           if (useApiRoute) {
             for await (const chunk of streamViaApiRoute(

@@ -35,6 +35,14 @@ export interface AISettings {
   openrouterEmbeddingModel?: string;
 
   /**
+   * System-level persona override, used when NO character is selected for
+   * the conversation (a character's own persona takes precedence). Replaces
+   * the built-in reading-companion identity/style; anti-spoiler constraints
+   * always apply on top.
+   */
+  systemPrompt?: string;
+
+  /**
    * Standing user-level instructions, appended (LLM-only — never shown in
    * the thread, never persisted with a message) to the latest user message
    * of every turn. E.g. "Answer in Chinese; attach phonetics to English

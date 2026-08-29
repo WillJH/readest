@@ -2254,7 +2254,10 @@
   "Chat character": "对话角色",
   "Default Companion": "默认阅读伙伴",
   "Prompts": "提示词",
+  "System Prompt (optional)": "系统提示词(可选)",
+  "You are a patient English tutor. Explain vocabulary as you answer.": "你是一位耐心的英语导师,回答时顺带讲解词汇。",
+  "Replaces the built-in companion persona when no character is selected; a selected character takes precedence. Anti-spoiler rules always apply.": "未选择角色时,替换内置阅读伙伴的人设;已选角色时以角色人设为准。防剧透规则始终生效。",
   "User Instructions (optional)": "用户指令(可选)",
   "Answer in Chinese; attach phonetics to English words.": "用中文回答;英文单词附音标。",
-  "Appended to every message you send. Never shown in the thread. The character persona above sets the system prompt; these instructions are user-level.": "自动附加在你发送的每条消息后,不在聊天中显示,也不随消息存储。角色人设是系统级提示词,这里是用户级指令。"
+  "Appended to every message you send. Never shown in the thread. The system prompt (character persona or the box above) sets who the AI is; these instructions are user-level.": "自动附加在你发送的每条消息后,不在聊天中显示,也不随消息存储。系统提示词(角色人设或上框)决定 AI 是谁,这里是用户级指令。"
 }
