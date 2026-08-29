@@ -34,6 +34,19 @@ export const getGoogleClientId = (): string | undefined =>
   process.env['NEXT_PUBLIC_GOOGLE_CLIENT_ID'] || OFFICIAL_GOOGLE_CLIENT_ID;
 
 /**
+ * Fork: BYO "Desktop app"-type Google OAuth client id for the desktop Linux
+ * loopback flow (`http://127.0.0.1:<ephemeral port>` redirect, RFC 8252). When
+ * set via `NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID`, desktop Linux connects via
+ * the loopback runner instead of the reverse-DNS deep link, whose OS scheme
+ * routing is what silently dies on Wayland/NVIDIA desktops. Loopback redirects
+ * are pre-authorized for Desktop-type clients at any port, so nothing else
+ * needs registering. Unset (the default) keeps the official deep-link flow —
+ * macOS/Windows never read this.
+ */
+export const getGoogleLoopbackClientId = (): string | undefined =>
+  process.env['NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID'] || undefined;
+
+/**
  * The official Readest **Web-type** Google OAuth client id used by the browser
  * GIS flow (its authorized JavaScript origins are `web.readest.com` + the
  * localhost dev origin). Separate from the iOS-type

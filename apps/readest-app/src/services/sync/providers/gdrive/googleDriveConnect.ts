@@ -7,9 +7,14 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { type as osType } from '@tauri-apps/plugin-os';
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
-import { getGoogleClientId, getGoogleWebClientId } from './buildGoogleDriveProvider';
+import {
+  getGoogleClientId,
+  getGoogleLoopbackClientId,
+  getGoogleWebClientId,
+} from './buildGoogleDriveProvider';
 import { createDriveTokenPersistence } from './driveTokenStore';
 import { runDesktopDeepLinkOAuth } from '@/services/sync/providers/oauth/oauthDesktop';
+import { runDesktopLoopbackOAuth } from '@/services/sync/providers/oauth/oauthLoopback';
 import { runAndroidOAuth } from '@/services/sync/providers/oauth/oauthAndroid';
 import { runIosOAuth } from '@/services/sync/providers/oauth/oauthIos';
 import { resetFileSyncProviderCache } from '@/services/sync/file/providerRegistry';
@@ -77,6 +82,27 @@ export const runGoogleDriveConnect = async (): Promise<ConnectGoogleDriveResult>
   const persistence = await createDriveTokenPersistence();
   if (!persistence) {
     throw new Error('Google Drive requires a Readest app build with secure storage');
+  }
+  // Fork: on desktop Linux a BYO Desktop-type client switches the connect to
+  // the loopback flow (localhost redirect, RFC 8252) — the official client's
+  // reverse-DNS deep link depends on OS scheme routing that Wayland/NVIDIA
+  // desktops routinely break, leaving the connect spinner forever. The
+  // loopback id is also the one the persisted token refreshes against, so
+  // connect and refresh stay on the same client.
+  let osTypeValue: ReturnType<typeof osType> | undefined;
+  try {
+    osTypeValue = osType();
+  } catch {
+    // osType() is Tauri-only; off-Tauri this path isn't reached anyway.
+  }
+  const loopbackClientId = getGoogleLoopbackClientId();
+  if (loopbackClientId && osTypeValue === 'linux') {
+    return connectGoogleDrive({
+      clientId: loopbackClientId,
+      fetchFn: resolveFetch(),
+      persistence,
+      runOAuth: runDesktopLoopbackOAuth,
+    });
   }
   return connectGoogleDrive({
     clientId,
