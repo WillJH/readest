@@ -2294,5 +2294,8 @@
   "Rotation pool: {{count}} selected": "轮换范围:已选 {{count}} 张",
   "Exclude from rotation": "移出轮换",
   "Include in rotation": "加入轮换",
-  "Back to reading position": "返回阅读进度"
+  "Back to reading position": "返回阅读进度",
+  "OpenAI-Compatible (OpenRouter / coding plans / vLLM…)": "OpenAI 兼容(OpenRouter / 编程订阅 / vLLM 等)",
+  "Readest AI Gateway": "Readest AI 网关",
+  "Ollama (local)": "Ollama(本地)"
 }

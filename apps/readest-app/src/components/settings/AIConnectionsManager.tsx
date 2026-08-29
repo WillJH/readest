@@ -18,6 +18,13 @@ interface AIConnectionsManagerProps {
 
 const PROVIDERS: AIProviderName[] = ['openrouter', 'ai-gateway', 'ollama'];
 
+/** Friendly labels — 'openrouter' is the generic OpenAI-compatible type. */
+const PROVIDER_LABELS: Record<AIProviderName, string> = {
+  openrouter: 'OpenAI-Compatible (OpenRouter / coding plans / vLLM…)',
+  'ai-gateway': 'Readest AI Gateway',
+  ollama: 'Ollama (local)',
+};
+
 const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
@@ -127,7 +134,9 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                   {connection.name}
                 </p>
                 <p className='text-base-content/50 line-clamp-1 text-xs'>
-                  <span className='badge badge-ghost badge-xs me-1'>{connection.provider}</span>
+                  <span className='badge badge-ghost badge-xs me-1'>
+                    {_(PROVIDER_LABELS[connection.provider])}
+                  </span>
                   {[connection.baseUrl, connection.model].filter(Boolean).join(' · ') ||
                     _('No endpoint configured')}
                 </p>
@@ -192,7 +201,7 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
               >
                 {PROVIDERS.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {_(PROVIDER_LABELS[p])}
                   </option>
                 ))}
               </select>
