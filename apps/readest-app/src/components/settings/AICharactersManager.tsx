@@ -9,6 +9,7 @@ import Dialog from '@/components/Dialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
 import { useCharacterStore } from '@/store/characterStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useFileSelector } from '@/hooks/useFileSelector';
 import type { AICharacter } from '@/services/ai/types';
 import SubPageHeader from './SubPageHeader';
@@ -20,6 +21,8 @@ interface AICharactersManagerProps {
 const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
+  const { settings } = useSettingsStore();
+  const connections = settings?.aiConnections ?? [];
   const {
     characters,
     imageUrls,
@@ -275,6 +278,44 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
                   'Describe the personality, speaking style, and role. Anti-spoiler rules always apply on top of this.',
                 )}
               />
+            </div>
+
+            <div className='flex flex-col gap-2'>
+              <span className='text-base-content/70 text-sm font-medium'>{_('AI Connection')}</span>
+              <select
+                value={editor.connectionId ?? ''}
+                onChange={(e) =>
+                  setEditor({ ...editor, connectionId: e.target.value || undefined })
+                }
+                className='select select-sm w-full bg-base-100'
+              >
+                <option value=''>{_('Global Settings')}</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <span className='text-base-content/60 text-xs'>
+                {_('The model this character chats through; embeddings stay global.')}
+              </span>
+            </div>
+
+            <div className='flex flex-col gap-2'>
+              <span className='text-base-content/70 text-sm font-medium'>{_('Mode')}</span>
+              <select
+                value={editor.mode ?? 'response'}
+                onChange={(e) =>
+                  setEditor({ ...editor, mode: e.target.value as AICharacter['mode'] })
+                }
+                className='select select-sm w-full bg-base-100'
+              >
+                <option value='response'>{_('Response Mode — speaks when asked')}</option>
+                <option value='companion'>{_('Companion Mode — speaks up on its own')}</option>
+              </select>
+              <span className='text-base-content/60 text-xs'>
+                {_('Companion mode arrives in a later update; stored per character.')}
+              </span>
             </div>
 
             <div className='flex flex-col gap-2'>

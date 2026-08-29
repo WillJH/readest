@@ -5,6 +5,7 @@ import {
   PiWarningCircle,
   PiArrowsClockwise,
   PiSpinner,
+  PiPlugs,
   PiUserCircle,
 } from 'react-icons/pi';
 
@@ -28,6 +29,7 @@ import {
   SettingsSwitchRow,
 } from './primitives';
 import AICharactersManager from './AICharactersManager';
+import AIConnectionsManager from './AIConnectionsManager';
 
 type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type CustomModelStatus = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -133,6 +135,7 @@ const AIPanel: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [showCharacters, setShowCharacters] = useState(false);
+  const [showConnections, setShowConnections] = useState(false);
   const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
   const [systemPrompt, setSystemPrompt] = useState(aiSettings.systemPrompt ?? '');
 
@@ -444,6 +447,10 @@ const AIPanel: React.FC = () => {
 
   if (showCharacters) {
     return <AICharactersManager onBack={() => setShowCharacters(false)} />;
+  }
+
+  if (showConnections) {
+    return <AIConnectionsManager onBack={() => setShowConnections(false)} />;
   }
 
   return (
@@ -784,6 +791,19 @@ const AIPanel: React.FC = () => {
           </div>
         </BoxedList>
       )}
+
+      <BoxedList
+        title={_('Connections')}
+        className={disabledSection}
+        cardClassName='overflow-hidden'
+      >
+        <NavigationRow
+          icon={PiPlugs}
+          title={_('Manage Connections')}
+          status={_('Saved endpoints a character can be bound to.')}
+          onClick={() => setShowConnections(true)}
+        />
+      </BoxedList>
 
       <BoxedList
         title={_('Characters')}

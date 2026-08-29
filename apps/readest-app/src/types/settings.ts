@@ -5,7 +5,7 @@ import { HighlightColor, HighlightStyle, UserHighlightColor, ViewSettings } from
 import { OPDSCatalog } from './opds';
 import { WebSource } from './webSource';
 import { ABSServer } from './audiobookshelf';
-import type { AICharacter, AISettings } from '@/services/ai/types';
+import type { AICharacter, AIConnection, AISettings } from '@/services/ai/types';
 import type { NotebookTab } from '@/store/notebookStore';
 import type { DictionarySettings, ImportedDictionary } from '@/services/dictionaries/types';
 
@@ -521,6 +521,8 @@ export interface SystemSettings {
    * v1 — a device without the binary gracefully falls back to no avatar.
    */
   aiCharacters?: AICharacter[];
+  /** Saved AI provider connections; characters bind one by id. */
+  aiConnections?: AIConnection[];
   /**
    * Per-device id used as the deviceId portion of every HLC this device
    * mints. Lazy-generated on first sync init via uuidv4 (mirrors

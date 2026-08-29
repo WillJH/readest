@@ -17,6 +17,7 @@ import { useBookProgress } from '@/store/readerProgressStore';
 import { useAIChatStore } from '@/store/aiChatStore';
 import { useCharacterStore } from '@/store/characterStore';
 import { aiLogger, createTauriAdapter } from '@/services/ai';
+import { resolveConnectionSettings } from '@/services/ai/connectionSettings';
 import {
   LegacyIdbBackend,
   ReedyBackend,
@@ -113,6 +114,7 @@ const AIAssistantChat = ({
     setDraftCharacter,
   } = useAIChatStore();
   const { envConfig } = useEnv();
+  const { settings: systemSettings } = useSettingsStore();
   const { characters, imageUrls, loadCharacters } = useCharacterStore();
   const [avatarLabel, setAvatarLabel] = useState<string | null>(null);
 
@@ -124,6 +126,15 @@ const AIAssistantChat = ({
   const characterId =
     conversations.find((c) => c.id === activeConversationId)?.characterId ?? draftCharacterId;
   const character = characters.find((c) => c.id === characterId && !c.deletedAt);
+
+  // A character-bound connection overrides the chat provider; embeddings and
+  // retrieval stay on the global settings.
+  const connection = character?.connectionId
+    ? (systemSettings?.aiConnections ?? []).find(
+        (c) => c.id === character.connectionId && !c.deletedAt,
+      )
+    : undefined;
+  const chatSettings = resolveConnectionSettings(aiSettings, connection);
 
   const resolveAvatarUrl = useCallback(
     (label: string | null | undefined): string | undefined => {
@@ -142,7 +153,7 @@ const AIAssistantChat = ({
 
   // use a ref to keep up-to-date options without triggering re-renders of the runtime
   const optionsRef = useRef({
-    settings: aiSettings,
+    settings: chatSettings,
     bookHash,
     bookTitle,
     authorName,
@@ -163,7 +174,7 @@ const AIAssistantChat = ({
   // update ref on every render with latest values
   useEffect(() => {
     optionsRef.current = {
-      settings: aiSettings,
+      settings: chatSettings,
       bookHash,
       bookTitle,
       authorName,
