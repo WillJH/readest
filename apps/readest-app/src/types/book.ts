@@ -419,6 +419,8 @@ export interface AnnotatorConfig {
   enableAnnotationQuickActions: boolean;
   annotationQuickAction: AnnotationToolType | null;
   annotationToolbarItems: AnnotationToolType[];
+  /** One-shot marker: the askAi tool was inserted into a pre-existing list. */
+  annotationToolbarAskAiMigrated?: boolean;
   copyToNotebook: boolean;
   noteExportConfig: NoteExportConfig;
 }

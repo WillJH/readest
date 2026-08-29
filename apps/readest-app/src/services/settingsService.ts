@@ -55,6 +55,22 @@ export function getDefaultViewSettings(ctx: Context): ViewSettings {
 }
 
 /**
+ * One-shot: insert the 'askAi' tool into a stored toolbar list that predates
+ * it (right after 'translate'). The flag makes the migration sticky-once —
+ * without it, a later deliberate removal in the customizer would be undone
+ * on the next load.
+ */
+export function migrateAnnotationToolbarAskAi(view: ViewSettings): void {
+  if (view.annotationToolbarAskAiMigrated) return;
+  view.annotationToolbarAskAiMigrated = true;
+  const items = view.annotationToolbarItems;
+  if (!Array.isArray(items) || items.includes('askAi')) return;
+  const at = items.indexOf('translate');
+  if (at >= 0) items.splice(at + 1, 0, 'askAi');
+  else items.push('askAi');
+}
+
+/**
  * Normalize highlight color prefs into the current shape:
  * - `userHighlightColors` becomes `UserHighlightColor[]`. Legacy `string[]` entries
  *   are lifted into `{ hex }`. A legacy `highlightColorLabels` map (shipped only in
@@ -157,6 +173,7 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     ...getDefaultViewSettings(ctx),
     ...settings.globalViewSettings,
   };
+  migrateAnnotationToolbarAskAi(settings.globalViewSettings);
   settings.aiSettings = {
     ...DEFAULT_AI_SETTINGS,
     ...settings.aiSettings,
