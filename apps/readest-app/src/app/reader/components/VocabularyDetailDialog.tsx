@@ -136,7 +136,7 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
                           </span>
                         )}
                       </div>
-                      <p className='text-base-content/80 line-clamp-6 whitespace-pre-line'>
+                      <p className='text-base-content/80 max-h-64 overflow-y-auto whitespace-pre-line text-sm'>
                         {def.content}
                       </p>
                     </div>
