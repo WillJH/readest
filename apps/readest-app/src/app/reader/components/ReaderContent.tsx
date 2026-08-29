@@ -46,6 +46,7 @@ import useBookShortcuts from '../hooks/useBookShortcuts';
 import Spinner from '@/components/Spinner';
 import SideBar from './sidebar/SideBar';
 import Notebook from './notebook/Notebook';
+import VocabularyReturnChip from './VocabularyReturnChip';
 import LocalSendManager from '@/components/localsend/LocalSendManager';
 import BooksGrid from './BooksGrid';
 import SettingsDialog from '@/components/settings/SettingsDialog';
@@ -402,6 +403,7 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
         />
       )}
       <Notebook />
+      <VocabularyReturnChip />
       <LocalSendManager />
       {showDetailsBook && (
         <BookDetailModal

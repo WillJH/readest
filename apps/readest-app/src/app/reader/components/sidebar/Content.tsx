@@ -13,7 +13,6 @@ import TOCView from './TOCView';
 import BooknoteView from './BooknoteView';
 import TabNavigation from './TabNavigation';
 import ChatHistoryView from './ChatHistoryView';
-import VocabularyView from './VocabularyView';
 
 const SidebarContent: React.FC<{
   bookDoc: BookDoc;
@@ -123,7 +122,6 @@ const SidebarContent: React.FC<{
               {targetTab === 'bookmarks' && (
                 <BooknoteView type='bookmark' toc={bookDoc.toc ?? []} bookKey={sideBarBookKey} />
               )}
-              {targetTab === 'vocabulary' && <VocabularyView />}
             </div>
           </OverlayScrollbarsComponent>
         )}

@@ -8,10 +8,17 @@ interface VocabularyState {
   isLoading: boolean;
   /** True once the list has been loaded in this session (guards refreshes). */
   isLoaded: boolean;
+  /**
+   * Reading position a vocabulary jump displaced, so the return chip can
+   * restore it. Cleared on return/dismiss; one slot (latest jump wins).
+   */
+  jumpedFrom: { bookKey: string; cfi: string; at: number } | null;
   loadWords: (appService: AppService) => Promise<void>;
   /** Reload only if a previous load happened — used after captures. */
   refreshIfLoaded: () => Promise<void>;
   removeWord: (appService: AppService, id: string) => Promise<void>;
+  setJumpedFrom: (from: { bookKey: string; cfi: string }) => void;
+  clearJumpedFrom: () => void;
 }
 
 /** Last appService used to open the DB, so refreshes don't need to thread it. */
@@ -21,6 +28,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   words: [],
   isLoading: false,
   isLoaded: false,
+  jumpedFrom: null,
 
   loadWords: async (appService) => {
     set({ isLoading: true });
@@ -45,5 +53,13 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
     const db = await VocabularyDb.open(appService);
     await db.deleteWord(id);
     set({ words: get().words.filter((w) => w.id !== id) });
+  },
+
+  setJumpedFrom: (from) => {
+    set({ jumpedFrom: { ...from, at: Date.now() } });
+  },
+
+  clearJumpedFrom: () => {
+    set({ jumpedFrom: null });
   },
 }));

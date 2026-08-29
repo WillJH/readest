@@ -9,6 +9,7 @@ import Dialog from '@/components/Dialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
 import { useReaderStore } from '@/store/readerStore';
+import { getBookProgress } from '@/store/readerProgressStore';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { VocabularyDb } from '@/services/vocabulary/vocabularyDb';
 import type { VocabularyContext, VocabularyWordDetail } from '@/types/vocabulary';
@@ -76,6 +77,12 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
     (context: VocabularyContext) => {
       const bookKey = openBookKeyFor(context);
       if (!bookKey || !context.cfi) return;
+      // Remember where the reader was, so the return chip can restore it —
+      // in a long foreign-language novel a lost position is hard to refind.
+      const previous = getBookProgress(bookKey)?.location;
+      if (previous && previous !== context.cfi) {
+        useVocabularyStore.getState().setJumpedFrom({ bookKey, cfi: previous });
+      }
       eventDispatcher.dispatch('navigate', { bookKey, cfi: context.cfi });
       getView(bookKey)?.goTo(context.cfi);
       onClose();

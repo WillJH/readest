@@ -2297,5 +2297,6 @@
   "Rotation pool: all images": "轮换范围:全部图片",
   "Rotation pool: {{count}} selected": "轮换范围:已选 {{count}} 张",
   "Exclude from rotation": "移出轮换",
-  "Include in rotation": "加入轮换"
+  "Include in rotation": "加入轮换",
+  "Back to reading position": "返回阅读进度"
 }
