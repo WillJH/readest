@@ -38,6 +38,5 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   maxContextChunks: 10,
   indexingMode: 'on-demand',
   userInstructions: '',
-  systemPrompt: '',
   reedy: { enabled: false },
 };

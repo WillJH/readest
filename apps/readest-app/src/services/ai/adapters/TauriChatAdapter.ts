@@ -42,6 +42,12 @@ export interface TauriAdapterOptions {
   onAvatarPick?: (label: string) => void;
   /** Configured MCP servers; enabled ones contribute tools to direct-provider turns. */
   mcpServers?: AIMcpServer[];
+  /**
+   * System prompt of the active connection — models take different
+   * prompting, so the prompt follows the connection. Applies when the
+   * active character has no persona of its own.
+   */
+  connectionSystemPrompt?: string;
 }
 
 async function* streamViaApiRoute(
@@ -93,6 +99,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
         character,
         onAvatarPick,
         mcpServers = [],
+        connectionSystemPrompt,
       } = options;
 
       // Strips a leading [avatar: label] off the streamed reply: emits the
@@ -204,15 +211,15 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
             }
           }
 
-          // Persona precedence: active character > global system prompt >
-          // built-in companion.
+          // Persona precedence: active character's persona > the active
+          // connection's model-specific prompt > built-in companion.
           let systemPrompt =
             buildSystemPrompt(
               bookTitle,
               authorName,
               chunks,
               currentPage,
-              character?.prompt || settings.systemPrompt,
+              character?.prompt || connectionSystemPrompt,
             ) + buildAvatarProtocol(character?.imageLabels ?? []);
 
           // MCP tools ride the direct-provider path (multi-step so results

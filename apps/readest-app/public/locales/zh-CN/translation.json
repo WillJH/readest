@@ -2325,5 +2325,8 @@
   "MCP Server": "MCP 服务器",
   "e.g. Web Search": "例如:Web Search",
   "Tool servers the AI can call while chatting (web search, lookups…). Direct connections only in v1.": "AI 对话时可调用的工具服务器(联网搜索、查询等)。v1 仅支持直连方式的模型连接。",
-  "Disabled": "已禁用"
+  "Disabled": "已禁用",
+  "Model-specific instructions — how this model should behave.": "针对该模型的指令——决定这个模型的行为方式。",
+  "Applies when this connection is active and the character has no persona. Anti-spoiler rules always apply.": "此连接生效且角色未写人设时使用。防剧透规则始终生效。",
+  "Appended to every message you send. Never shown in the thread. Who the AI is comes from the character persona or the connection’s system prompt; these instructions are user-level.": "自动附加在你发送的每条消息后,不在聊天中显示。AI 的身份由角色人设或连接的系统提示词决定;这里是用户级指令。"
 }

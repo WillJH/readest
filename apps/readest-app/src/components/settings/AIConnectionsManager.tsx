@@ -255,6 +255,25 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
               </span>
             </div>
 
+            <div className='flex flex-col gap-2'>
+              <span className='text-base-content/70 text-sm font-medium'>
+                {_('System Prompt (optional)')}
+              </span>
+              <textarea
+                className='textarea eink-bordered w-full text-sm placeholder:text-xs'
+                rows={4}
+                spellCheck={false}
+                value={editor.systemPrompt ?? ''}
+                onChange={(e) => setEditor({ ...editor, systemPrompt: e.target.value })}
+                placeholder={_('Model-specific instructions — how this model should behave.')}
+              />
+              <span className='text-base-content/60 text-xs'>
+                {_(
+                  'Applies when this connection is active and the character has no persona. Anti-spoiler rules always apply.',
+                )}
+              </span>
+            </div>
+
             <div className='flex justify-end gap-2'>
               <button
                 type='button'

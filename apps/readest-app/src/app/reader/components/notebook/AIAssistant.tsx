@@ -178,6 +178,7 @@ const AIAssistantChat = ({
       : null,
     onAvatarPick: setAvatarLabel,
     mcpServers: systemSettings?.aiMcpServers ?? [],
+    connectionSystemPrompt: connection?.systemPrompt,
   });
 
   // update ref on every render with latest values
@@ -200,6 +201,7 @@ const AIAssistantChat = ({
         : null,
       onAvatarPick: setAvatarLabel,
       mcpServers: systemSettings?.aiMcpServers ?? [],
+      connectionSystemPrompt: connection?.systemPrompt,
     };
   });
 

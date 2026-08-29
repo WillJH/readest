@@ -140,7 +140,6 @@ const AIPanel: React.FC = () => {
   const [showConnections, setShowConnections] = useState(false);
   const [showMcpServers, setShowMcpServers] = useState(false);
   const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
-  const [systemPrompt, setSystemPrompt] = useState(aiSettings.systemPrompt ?? '');
 
   const isMounted = useRef(false);
   const modelOptions = getModelOptions();
@@ -321,17 +320,6 @@ const AIPanel: React.FC = () => {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInstructions]);
-
-  useEffect(() => {
-    if (!isMounted.current) return;
-    const timer = setTimeout(() => {
-      if (systemPrompt !== (settingsRef.current?.aiSettings?.systemPrompt ?? '')) {
-        saveAiSetting('systemPrompt', systemPrompt);
-      }
-    }, 600);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [systemPrompt]);
 
   // Get the effective model ID to use (either selected or custom)
   const getEffectiveModelId = useCallback(() => {
@@ -840,23 +828,6 @@ const AIPanel: React.FC = () => {
 
       <BoxedList title={_('Prompts')} className={disabledSection}>
         <div className='flex flex-col gap-2 px-4 py-3'>
-          <SettingLabel>{_('System Prompt (optional)')}</SettingLabel>
-          <textarea
-            className='textarea eink-bordered w-full font-mono text-sm placeholder:text-xs'
-            rows={4}
-            spellCheck={false}
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder={_('You are a patient English tutor. Explain vocabulary as you answer.')}
-            disabled={!enabled}
-          />
-          <span className='text-base-content/60 text-xs'>
-            {_(
-              'Replaces the built-in companion persona when no character is selected; a selected character takes precedence. Anti-spoiler rules always apply.',
-            )}
-          </span>
-        </div>
-        <div className='flex flex-col gap-2 px-4 py-3'>
           <SettingLabel>{_('User Instructions (optional)')}</SettingLabel>
           <textarea
             className='textarea eink-bordered w-full font-mono text-sm placeholder:text-xs'
@@ -869,7 +840,7 @@ const AIPanel: React.FC = () => {
           />
           <span className='text-base-content/60 text-xs'>
             {_(
-              'Appended to every message you send. Never shown in the thread. The system prompt (character persona or the box above) sets who the AI is; these instructions are user-level.',
+              'Appended to every message you send. Never shown in the thread. Who the AI is comes from the character persona or the connection\u2019s system prompt; these instructions are user-level.',
             )}
           </span>
         </div>

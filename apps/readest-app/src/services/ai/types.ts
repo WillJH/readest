@@ -35,10 +35,10 @@ export interface AISettings {
   openrouterEmbeddingModel?: string;
 
   /**
-   * System-level persona override, used when NO character is selected for
-   * the conversation (a character's own persona takes precedence). Replaces
-   * the built-in reading-companion identity/style; anti-spoiler constraints
-   * always apply on top.
+   * @deprecated System prompts now live on the connection
+   * (`AIConnection.systemPrompt`) — models take different prompting, so the
+   * prompt follows the connection. Legacy field kept so old settings files
+   * keep loading; no longer read anywhere.
    */
   systemPrompt?: string;
 
@@ -155,6 +155,13 @@ export interface AIConnection {
   apiKey?: string;
   /** Chat model id. Embedding models stay on the global settings. */
   model?: string;
+  /**
+   * Model-specific system prompt applied when this connection is active —
+   * different models take different prompting. Used when the active
+   * character has no persona of its own; anti-spoiler constraints always
+   * apply on top.
+   */
+  systemPrompt?: string;
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;
