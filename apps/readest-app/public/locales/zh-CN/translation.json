@@ -2297,5 +2297,8 @@
   "Back to reading position": "返回阅读进度",
   "OpenAI-Compatible (OpenRouter / coding plans / vLLM…)": "OpenAI 兼容(OpenRouter / 编程订阅 / vLLM 等)",
   "Readest AI Gateway": "Readest AI 网关",
-  "Ollama (local)": "Ollama(本地)"
+  "Ollama (local)": "Ollama(本地)",
+  "Start from a template": "从模板开始",
+  "Start from blank": "从空白开始",
+  "The template pre-fills the persona prompt — edit anything before saving. Templates only write the prompt; bind a connection and avatars after creating.": "模板会预填人设提示词,保存前可随意修改。模板只负责提示词;连接和头像请在创建后绑定。"
 }

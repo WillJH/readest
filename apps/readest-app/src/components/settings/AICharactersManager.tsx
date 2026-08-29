@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { LuPencil, LuPlus, LuStar, LuTrash2, LuUserRound } from 'react-icons/lu';
 
@@ -12,6 +12,7 @@ import { useCharacterStore } from '@/store/characterStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFileSelector } from '@/hooks/useFileSelector';
 import type { AICharacter } from '@/services/ai/types';
+import { AI_CHARACTER_TEMPLATES, templateInView } from '@/services/ai/characterTemplates';
 import SubPageHeader from './SubPageHeader';
 
 interface AICharactersManagerProps {
@@ -39,18 +40,27 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
   const [editor, setEditor] = useState<AICharacter | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [nameError, setNameError] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const templatesInView = useMemo(() => AI_CHARACTER_TEMPLATES.map(templateInView), []);
 
   useEffect(() => {
     if (envConfig) void loadCharacters(envConfig);
   }, [envConfig, loadCharacters]);
 
   const handleNew = useCallback(() => {
+    setShowTemplatePicker(true);
+  }, []);
+
+  // Blank draft, or one seeded from a template — phone users shouldn't have
+  // to write a full persona by hand.
+  const startFromTemplate = useCallback((template?: (typeof templatesInView)[number]) => {
+    setShowTemplatePicker(false);
     setIsNew(true);
     setNameError(false);
     setEditor({
       id: uuidv4(),
-      name: '',
-      prompt: '',
+      name: template?.name ?? '',
+      prompt: template?.prompt ?? '',
       images: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -401,6 +411,41 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* Template picker — the entry point for New Character */}
+      <Dialog
+        isOpen={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        title={_('Start from a template')}
+        boxClassName='sm:min-w-[440px]!'
+      >
+        <div className='flex flex-col gap-2'>
+          {templatesInView.map((t) => (
+            <button
+              key={t.id}
+              type='button'
+              onClick={() => startFromTemplate(t)}
+              className='border-base-content/10 hover:bg-base-200/50 flex flex-col items-start gap-0.5 rounded-lg border p-3 text-start transition-colors'
+            >
+              <span className='text-base-content text-sm font-medium'>{t.name}</span>
+              <span className='text-base-content/60 text-xs'>{t.description}</span>
+            </button>
+          ))}
+          <button
+            type='button'
+            onClick={() => startFromTemplate(undefined)}
+            className='text-base-content/60 hover:bg-base-200/50 flex items-center gap-2 rounded-lg p-3 text-start text-sm transition-colors'
+          >
+            <LuPlus size={14} />
+            {_('Start from blank')}
+          </button>
+          <p className='text-base-content/45 px-1 text-xs'>
+            {_(
+              'The template pre-fills the persona prompt — edit anything before saving. Templates only write the prompt; bind a connection and avatars after creating.',
+            )}
+          </p>
+        </div>
       </Dialog>
     </div>
   );
