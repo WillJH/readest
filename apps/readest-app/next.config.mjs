@@ -53,7 +53,15 @@ const nextConfig = {
   assetPrefix: '',
   reactStrictMode: true,
   serverExternalPackages: ['isows'],
-  allowedDevOrigins: ['192.168.2.120'],
+  // Dev-only origins allowed to load HMR/dev resources: the maintainer's LAN
+  // dev box, plus opt-in extras (e.g. a dev container's forwarded port)
+  // via NEXT_DEV_ALLOWED_ORIGINS="host[,host…]" — Next 16 otherwise blocks
+  // cross-origin dev resources and the page renders blank behind a forward.
+  allowedDevOrigins: [
+    '192.168.2.120',
+    ...(process.env['NEXT_DEV_ALLOWED_ORIGINS']?.split(',').map((s) => s.trim()).filter(Boolean) ??
+      []),
+  ],
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
