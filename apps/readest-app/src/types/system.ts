@@ -192,6 +192,12 @@ export interface AppService {
   deleteFont(font: CustomFont): Promise<void>;
   importImage(file?: string | File): Promise<CustomTextureInfo | null>;
   deleteImage(texture: CustomTextureInfo): Promise<void>;
+  importCharacterImage(
+    characterId: string,
+    file?: string | File,
+  ): Promise<import('@/services/ai/characterImageService').CharacterImageFile | null>;
+  deleteCharacterImage(characterId: string, filename: string): Promise<void>;
+  deleteCharacterFiles(characterId: string): Promise<void>;
   importDictionaries(
     files: SelectedFile[],
     existingDictionaries?: ImportedDictionary[],

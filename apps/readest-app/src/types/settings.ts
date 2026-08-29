@@ -5,7 +5,7 @@ import { HighlightColor, HighlightStyle, UserHighlightColor, ViewSettings } from
 import { OPDSCatalog } from './opds';
 import { WebSource } from './webSource';
 import { ABSServer } from './audiobookshelf';
-import type { AISettings } from '@/services/ai/types';
+import type { AICharacter, AISettings } from '@/services/ai/types';
 import type { NotebookTab } from '@/store/notebookStore';
 import type { DictionarySettings, ImportedDictionary } from '@/services/dictionaries/types';
 
@@ -515,6 +515,12 @@ export interface SystemSettings {
   icloud: ICloudSettings;
 
   aiSettings: AISettings;
+  /**
+   * User-defined AI chat characters (persona + avatar gallery). Image
+   * binaries live under `Images/Characters/<id>/` and are device-local in
+   * v1 — a device without the binary gracefully falls back to no avatar.
+   */
+  aiCharacters?: AICharacter[];
   /**
    * Per-device id used as the deviceId portion of every HLC this device
    * mints. Lazy-generated on first sync init via uuidv4 (mirrors

@@ -15,6 +15,7 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useBookProgress } from '@/store/readerProgressStore';
 import { useAIChatStore } from '@/store/aiChatStore';
+import { useCharacterStore } from '@/store/characterStore';
 import { aiLogger, createTauriAdapter } from '@/services/ai';
 import {
   LegacyIdbBackend,
@@ -100,12 +101,44 @@ const AIAssistantChat = ({
   onSourceClick?: (source: SourceItem) => void;
   onResetIndex: () => void;
 }) => {
+  const _ = useTranslation();
   const {
     activeConversationId,
+    conversations,
+    draftCharacterId,
     messages: storedMessages,
     addMessage,
     isLoadingHistory,
+    setConversationCharacter,
+    setDraftCharacter,
   } = useAIChatStore();
+  const { envConfig } = useEnv();
+  const { characters, imageUrls, loadCharacters } = useCharacterStore();
+  const [avatarLabel, setAvatarLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (envConfig) void loadCharacters(envConfig);
+  }, [envConfig, loadCharacters]);
+
+  // The conversation's bound character, or the draft pick for the next one.
+  const characterId =
+    conversations.find((c) => c.id === activeConversationId)?.characterId ?? draftCharacterId;
+  const character = characters.find((c) => c.id === characterId && !c.deletedAt);
+
+  const resolveAvatarUrl = useCallback(
+    (label: string | null | undefined): string | undefined => {
+      if (!character) return undefined;
+      if (label) {
+        const byLabel = character.images.find((i) => i.label.toLowerCase() === label.toLowerCase());
+        if (byLabel && imageUrls[byLabel.id]) return imageUrls[byLabel.id];
+      }
+      const fallback =
+        character.images.find((i) => i.id === character.defaultImageId) ?? character.images[0];
+      return fallback ? imageUrls[fallback.id] : undefined;
+    },
+    [character, imageUrls],
+  );
+  const avatarUrl = resolveAvatarUrl(avatarLabel);
 
   // use a ref to keep up-to-date options without triggering re-renders of the runtime
   const optionsRef = useRef({
@@ -117,6 +150,14 @@ const AIAssistantChat = ({
     backend,
     sourceStore,
     onTurnStart: setCurrentTurnId,
+    character: character
+      ? {
+          name: character.name,
+          prompt: character.prompt,
+          imageLabels: character.images.map((i) => i.label),
+        }
+      : null,
+    onAvatarPick: setAvatarLabel,
   });
 
   // update ref on every render with latest values
@@ -130,6 +171,14 @@ const AIAssistantChat = ({
       backend,
       sourceStore,
       onTurnStart: setCurrentTurnId,
+      character: character
+        ? {
+            name: character.name,
+            prompt: character.prompt,
+            imageLabels: character.images.map((i) => i.label),
+          }
+        : null,
+      onAvatarPick: setAvatarLabel,
     };
   });
 
@@ -176,16 +225,51 @@ const AIAssistantChat = ({
   }, [activeConversationId, storedMessages, addMessage]);
 
   return (
-    <AIAssistantWithRuntime
-      adapter={adapter}
-      historyAdapter={historyAdapter}
-      onResetIndex={onResetIndex}
-      isLoadingHistory={isLoadingHistory}
-      hasActiveConversation={!!activeConversationId}
-      sourceStore={sourceStore}
-      currentTurnId={currentTurnId}
-      onSourceClick={onSourceClick}
-    />
+    <div className='flex h-full min-h-0 flex-col'>
+      {characters.length > 0 && (
+        <div className='flex items-center gap-2 px-3 pt-1 pb-2'>
+          <select
+            value={characterId ?? ''}
+            onChange={(e) => {
+              const next = e.target.value || null;
+              setAvatarLabel(null);
+              if (activeConversationId) {
+                void setConversationCharacter(activeConversationId, next ?? undefined);
+              } else {
+                setDraftCharacter(next);
+              }
+            }}
+            aria-label={_('Chat character')}
+            className='select select-xs h-7 max-w-[60%] bg-base-200'
+          >
+            <option value=''>{_('Default Companion')}</option>
+            {characters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {avatarUrl && character && (
+            <img
+              src={avatarUrl}
+              alt={character.name}
+              className='bg-base-300/60 size-7 shrink-0 rounded-full object-cover'
+            />
+          )}
+        </div>
+      )}
+      <AIAssistantWithRuntime
+        adapter={adapter}
+        historyAdapter={historyAdapter}
+        onResetIndex={onResetIndex}
+        isLoadingHistory={isLoadingHistory}
+        hasActiveConversation={!!activeConversationId}
+        sourceStore={sourceStore}
+        currentTurnId={currentTurnId}
+        onSourceClick={onSourceClick}
+        avatarUrl={avatarUrl}
+      />
+    </div>
   );
 };
 
@@ -198,6 +282,7 @@ const AIAssistantWithRuntime = ({
   sourceStore,
   currentTurnId,
   onSourceClick,
+  avatarUrl,
 }: {
   adapter: NonNullable<ReturnType<typeof createTauriAdapter>>;
   historyAdapter?: ThreadHistoryAdapter;
@@ -207,6 +292,7 @@ const AIAssistantWithRuntime = ({
   sourceStore: ReedySourceStore;
   currentTurnId: string | null;
   onSourceClick?: (source: SourceItem) => void;
+  avatarUrl?: string;
 }) => {
   const runtime = useLocalRuntime(adapter, {
     adapters: historyAdapter ? { history: historyAdapter } : undefined,
@@ -223,6 +309,7 @@ const AIAssistantWithRuntime = ({
         sourceStore={sourceStore}
         currentTurnId={currentTurnId}
         onSourceClick={onSourceClick}
+        avatarUrl={avatarUrl}
       />
     </AssistantRuntimeProvider>
   );
@@ -235,6 +322,7 @@ const ThreadWrapper = ({
   sourceStore,
   currentTurnId,
   onSourceClick,
+  avatarUrl,
 }: {
   onResetIndex: () => void;
   isLoadingHistory: boolean;
@@ -242,6 +330,7 @@ const ThreadWrapper = ({
   sourceStore: ReedySourceStore;
   currentTurnId: string | null;
   onSourceClick?: (source: SourceItem) => void;
+  avatarUrl?: string;
 }) => {
   const [sources, setSources] = useState<RetrievedChunk[]>(
     currentTurnId ? sourceStore.get(currentTurnId) : [],
@@ -275,6 +364,7 @@ const ThreadWrapper = ({
       onResetIndex={onResetIndex}
       isLoadingHistory={isLoadingHistory}
       hasActiveConversation={hasActiveConversation}
+      avatarUrl={avatarUrl}
     />
   );
 };

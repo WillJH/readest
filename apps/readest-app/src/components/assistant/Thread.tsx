@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import {
   ActionBarPrimitive,
   AssistantIf,
@@ -44,6 +44,8 @@ interface ThreadProps {
   onResetIndex?: () => void;
   isLoadingHistory?: boolean;
   hasActiveConversation?: boolean;
+  /** Character avatar for assistant messages (latest pick / default image). */
+  avatarUrl?: string;
 }
 
 const LoadingOverlay: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -108,6 +110,7 @@ export const Thread: FC<ThreadProps> = ({
   onResetIndex,
   isLoadingHistory = false,
   hasActiveConversation = false,
+  avatarUrl,
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -196,7 +199,11 @@ export const Thread: FC<ThreadProps> = ({
                 UserMessage,
                 EditComposer,
                 AssistantMessage: () => (
-                  <AssistantMessage sources={sources} onSourceClick={onSourceClick} />
+                  <AssistantMessage
+                    sources={sources}
+                    onSourceClick={onSourceClick}
+                    avatarUrl={avatarUrl}
+                  />
                 ),
               }}
             />
@@ -287,15 +294,39 @@ const Composer: FC<ComposerProps> = ({ onClear, onResetIndex }) => {
 interface AssistantMessageProps {
   sources?: SourceItem[];
   onSourceClick?: (source: SourceItem) => void;
+  avatarUrl?: string;
 }
 
-const AssistantMessage: FC<AssistantMessageProps> = ({ sources = [], onSourceClick }) => {
+const AssistantMessage: FC<AssistantMessageProps> = ({
+  sources = [],
+  onSourceClick,
+  avatarUrl,
+}) => {
+  const isRunning = useAssistantState((s) => s.message.status?.type === 'running');
+  // Latch the avatar while THIS message streams, so later replies picking a
+  // different image don't retroactively change earlier ones. Messages loaded
+  // from history never ran here and keep the default (unset → parent's url
+  // at mount, i.e. the character's default image).
+  const [latchedUrl, setLatchedUrl] = useState<string | undefined>(avatarUrl);
+  useEffect(() => {
+    if (isRunning && avatarUrl) setLatchedUrl(avatarUrl);
+  }, [isRunning, avatarUrl]);
+
   return (
     <MessagePrimitive.Root className='group/message animate-in fade-in slide-in-from-bottom-1 relative mx-auto mb-1 flex w-full flex-col pb-0.5 duration-200'>
-      <div className='flex flex-col items-start'>
-        <div className='w-full max-w-none'>
-          <div className='prose prose-xs text-base-content [&_*]:text-base-content! [&_a]:text-primary! [&_code]:text-base-content! select-text text-sm'>
-            <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+      <div className='flex w-full flex-col items-start'>
+        <div className='flex w-full max-w-none gap-2'>
+          {latchedUrl && (
+            <img
+              src={latchedUrl}
+              alt=''
+              className='bg-base-300/60 mt-0.5 size-7 shrink-0 rounded-full object-cover'
+            />
+          )}
+          <div className='w-full min-w-0 max-w-none'>
+            <div className='prose prose-xs text-base-content [&_*]:text-base-content! [&_a]:text-primary! [&_code]:text-base-content! select-text text-sm'>
+              <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+            </div>
           </div>
         </div>
 

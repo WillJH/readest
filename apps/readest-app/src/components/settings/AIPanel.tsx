@@ -1,6 +1,12 @@
 import clsx from 'clsx';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { PiCheckCircle, PiWarningCircle, PiArrowsClockwise, PiSpinner } from 'react-icons/pi';
+import {
+  PiCheckCircle,
+  PiWarningCircle,
+  PiArrowsClockwise,
+  PiSpinner,
+  PiUserCircle,
+} from 'react-icons/pi';
 
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -14,7 +20,14 @@ import { DEFAULT_AI_SETTINGS, GATEWAY_MODELS, MODEL_PRICING } from '@/services/a
 import type { AISettings, AIProviderName } from '@/services/ai/types';
 import { exportReedyMetricsBundle } from '@/services/reedy/instrumentation';
 import { isTauriAppPlatform } from '@/services/environment';
-import { BoxedList, SettingLabel, SettingsRow, SettingsSwitchRow } from './primitives';
+import {
+  BoxedList,
+  NavigationRow,
+  SettingLabel,
+  SettingsRow,
+  SettingsSwitchRow,
+} from './primitives';
+import AICharactersManager from './AICharactersManager';
 
 type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type CustomModelStatus = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -119,6 +132,8 @@ const AIPanel: React.FC = () => {
 
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showCharacters, setShowCharacters] = useState(false);
+  const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
 
   const isMounted = useRef(false);
   const modelOptions = getModelOptions();
@@ -288,6 +303,18 @@ const AIPanel: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openrouterEmbeddingModel]);
 
+  // Debounced: a multi-line prompt shouldn't write settings on every keystroke.
+  useEffect(() => {
+    if (!isMounted.current) return;
+    const timer = setTimeout(() => {
+      if (userInstructions !== (settingsRef.current?.aiSettings?.userInstructions ?? '')) {
+        saveAiSetting('userInstructions', userInstructions);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userInstructions]);
+
   // Get the effective model ID to use (either selected or custom)
   const getEffectiveModelId = useCallback(() => {
     if (selectedModel === CUSTOM_MODEL_VALUE && customModelStatus === 'valid') {
@@ -402,6 +429,10 @@ const AIPanel: React.FC = () => {
   };
 
   const disabledSection = !enabled ? 'opacity-50 pointer-events-none select-none' : '';
+
+  if (showCharacters) {
+    return <AICharactersManager onBack={() => setShowCharacters(false)} />;
+  }
 
   return (
     <div className='my-4 w-full space-y-6'>
@@ -741,6 +772,39 @@ const AIPanel: React.FC = () => {
           </div>
         </BoxedList>
       )}
+
+      <BoxedList
+        title={_('Characters')}
+        className={disabledSection}
+        cardClassName='overflow-hidden'
+      >
+        <NavigationRow
+          icon={PiUserCircle}
+          title={_('Manage Characters')}
+          status={_('Chat personas with an avatar gallery the AI picks from.')}
+          onClick={() => setShowCharacters(true)}
+        />
+      </BoxedList>
+
+      <BoxedList title={_('Prompts')} className={disabledSection}>
+        <div className='flex flex-col gap-2 px-4 py-3'>
+          <SettingLabel>{_('User Instructions (optional)')}</SettingLabel>
+          <textarea
+            className='textarea eink-bordered w-full font-mono text-sm placeholder:text-xs'
+            rows={4}
+            spellCheck={false}
+            value={userInstructions}
+            onChange={(e) => setUserInstructions(e.target.value)}
+            placeholder={_('Answer in Chinese; attach phonetics to English words.')}
+            disabled={!enabled}
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'Appended to every message you send. Never shown in the thread. The character persona above sets the system prompt; these instructions are user-level.',
+            )}
+          </span>
+        </div>
+      </BoxedList>
 
       <BoxedList
         title={_('Reedy Retrieval (Beta)')}

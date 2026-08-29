@@ -8,6 +8,11 @@ interface AIChatState {
   messages: AIMessage[];
   isLoadingHistory: boolean;
   currentBookHash: string | null;
+  /**
+   * Character chosen while no conversation is active yet; stamped onto the
+   * next created conversation. Session state — intentionally not persisted.
+   */
+  draftCharacterId: string | null;
 
   loadConversations: (bookHash: string) => Promise<void>;
   setActiveConversation: (id: string | null) => Promise<void>;
@@ -16,6 +21,8 @@ interface AIChatState {
   deleteConversation: (id: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   clearActiveConversation: () => void;
+  setConversationCharacter: (id: string, characterId: string | undefined) => Promise<void>;
+  setDraftCharacter: (characterId: string | null) => void;
 }
 
 function generateId(): string {
@@ -28,6 +35,7 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
   messages: [],
   isLoadingHistory: false,
   currentBookHash: null,
+  draftCharacterId: null,
 
   loadConversations: async (bookHash: string) => {
     if (get().currentBookHash === bookHash && get().conversations.length > 0) {
@@ -71,6 +79,7 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
       id,
       bookHash,
       title: title.slice(0, 50) || 'New conversation',
+      characterId: get().draftCharacterId ?? undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -135,5 +144,17 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
 
   clearActiveConversation: () => {
     set({ activeConversationId: null, messages: [] });
+  },
+
+  setConversationCharacter: async (id, characterId) => {
+    const conv = get().conversations.find((c) => c.id === id);
+    if (!conv) return;
+    const updated = { ...conv, characterId, updatedAt: Date.now() };
+    await aiStore.saveConversation(updated);
+    set({ conversations: get().conversations.map((c) => (c.id === id ? updated : c)) });
+  },
+
+  setDraftCharacter: (characterId) => {
+    set({ draftCharacterId: characterId });
   },
 }));

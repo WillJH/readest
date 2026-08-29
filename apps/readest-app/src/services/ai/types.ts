@@ -34,6 +34,14 @@ export interface AISettings {
   openrouterModel?: string;
   openrouterEmbeddingModel?: string;
 
+  /**
+   * Standing user-level instructions, appended (LLM-only — never shown in
+   * the thread, never persisted with a message) to the latest user message
+   * of every turn. E.g. "Answer in Chinese; attach phonetics to English
+   * words." Independent of the active character's persona.
+   */
+  userInstructions?: string;
+
   spoilerProtection: boolean;
   maxContextChunks: number;
   indexingMode: 'on-demand' | 'background';
@@ -101,6 +109,8 @@ export interface AIConversation {
   id: string;
   bookHash: string;
   title: string;
+  /** Character this conversation talks to; unset = built-in companion. */
+  characterId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -112,4 +122,32 @@ export interface AIMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: number;
+}
+
+/** One image in a character's gallery. Binaries live under Images/Characters/<characterId>/. */
+export interface AICharacterImage {
+  id: string;
+  contentId: string;
+  filename: string;
+  byteSize: number;
+  /** Short label the model uses to pick this image via [avatar: label]. */
+  label: string;
+}
+
+/**
+ * A user-defined chat character: a persona prompt that replaces the built-in
+ * reading-companion identity/style (anti-spoiler constraints always stay),
+ * plus an image gallery the model picks its avatar from per reply.
+ */
+export interface AICharacter {
+  id: string;
+  name: string;
+  /** Persona replacing the built-in identity/response-style sections. */
+  prompt: string;
+  images: AICharacterImage[];
+  /** Shown when the model's [avatar: …] pick doesn't resolve. */
+  defaultImageId?: string;
+  deletedAt?: number;
+  createdAt: number;
+  updatedAt: number;
 }

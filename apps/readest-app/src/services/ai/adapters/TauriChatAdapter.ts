@@ -2,7 +2,8 @@ import { streamText, stepCountIs } from 'ai';
 import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react';
 import { getAIProvider } from '../providers';
 import { aiLogger } from '../logger';
-import { buildSystemPrompt } from '../prompts';
+import { buildAvatarProtocol, buildSystemPrompt } from '../prompts';
+import { parseAvatarTag } from '../avatarTag';
 import type { AISettings, ScoredChunk } from '../types';
 import type { RetrievalBackend } from './retrievalBackend';
 import type { ReedySourceStore } from './reedySourceStore';
@@ -24,6 +25,20 @@ export interface TauriAdapterOptions {
   sourceStore: ReedySourceStore;
   /** Called when a new turn starts so the UI can switch its subscription. */
   onTurnStart?: (turnId: string) => void;
+  /** Active chat character, when one is bound to the conversation. */
+  character?: {
+    name: string;
+    /** Persona replacing the built-in companion identity/style. */
+    prompt: string;
+    /** Gallery image labels for the [avatar: …] protocol; empty = no protocol. */
+    imageLabels: string[];
+  } | null;
+  /**
+   * Fired when the model's leading [avatar: label] tag is parsed off a
+   * streamed reply, so the UI can swap the assistant avatar. The stripped
+   * text is what the runtime (and the persisted history) ever sees.
+   */
+  onAvatarPick?: (label: string) => void;
 }
 
 async function* streamViaApiRoute(
@@ -72,7 +87,27 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
         backend,
         sourceStore,
         onTurnStart,
+        character,
+        onAvatarPick,
       } = options;
+
+      // Strips a leading [avatar: label] off the streamed reply: emits the
+      // pick via onAvatarPick and returns the tag-free text. While a possible
+      // tag is still forming (starts with '[' but hasn't closed) the display
+      // text is suppressed so a half-streamed tag never flashes.
+      let avatarResolved = false;
+      const applyAvatarTag = (current: string): string => {
+        if (avatarResolved) return current;
+        const parsed = parseAvatarTag(current);
+        if (parsed.label !== null) {
+          avatarResolved = true;
+          onAvatarPick?.(parsed.label);
+          return parsed.displayText;
+        }
+        if (current.trimStart().startsWith('[')) return '';
+        avatarResolved = true;
+        return current;
+      };
 
       // A fresh per-turn id so the source store can key this turn's
       // citations independently of any prior turn. We expose it via
@@ -100,6 +135,21 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
           .map((c) => c.text)
           .join('\n'),
       }));
+
+      // Standing user-level instructions ride the LATEST user message only —
+      // LLM-only, never shown in the thread nor persisted with the message.
+      const instructions = settings.userInstructions?.trim();
+      if (instructions) {
+        for (let i = aiMessages.length - 1; i >= 0; i--) {
+          if (aiMessages[i]!.role === 'user') {
+            aiMessages[i] = {
+              ...aiMessages[i]!,
+              content: `${aiMessages[i]!.content}\n\n[Follow these standing instructions from the user: ${instructions}]`,
+            };
+            break;
+          }
+        }
+      }
 
       const useApiRoute = typeof window !== 'undefined' && settings.provider === 'ai-gateway';
 
@@ -150,7 +200,9 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
             }
           }
 
-          const systemPrompt = buildSystemPrompt(bookTitle, authorName, chunks, currentPage);
+          const systemPrompt =
+            buildSystemPrompt(bookTitle, authorName, chunks, currentPage, character?.prompt) +
+            buildAvatarProtocol(character?.imageLabels ?? []);
 
           if (useApiRoute) {
             for await (const chunk of streamViaApiRoute(
@@ -159,7 +211,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
               settings,
               abortSignal,
             )) {
-              text += chunk;
+              text = applyAvatarTag(text + chunk);
               yield { content: [{ type: 'text', text }] };
             }
           } else {
@@ -171,7 +223,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
               abortSignal,
             });
             for await (const chunk of result.textStream) {
-              text += chunk;
+              text = applyAvatarTag(text + chunk);
               yield { content: [{ type: 'text', text }] };
             }
           }

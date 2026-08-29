@@ -35,6 +35,7 @@ import * as CloudSvc from './cloudService';
 import * as DictSvc from './dictionaries/dictionaryService';
 import * as FontSvc from './fontService';
 import * as ImageSvc from './imageService';
+import * as CharacterImageSvc from './ai/characterImageService';
 import * as LibrarySvc from './libraryService';
 import * as Settings from './settingsService';
 import {
@@ -334,6 +335,21 @@ export abstract class BaseAppService implements AppService {
 
   async deleteImage(texture: CustomTextureInfo): Promise<void> {
     return ImageSvc.deleteImage(this.fs, texture);
+  }
+
+  async importCharacterImage(
+    characterId: string,
+    file?: string | File,
+  ): Promise<CharacterImageSvc.CharacterImageFile | null> {
+    return CharacterImageSvc.importCharacterImage(this.fs, characterId, file);
+  }
+
+  async deleteCharacterImage(characterId: string, filename: string): Promise<void> {
+    return CharacterImageSvc.deleteCharacterImage(this.fs, characterId, filename);
+  }
+
+  async deleteCharacterFiles(characterId: string): Promise<void> {
+    return CharacterImageSvc.deleteCharacterFiles(this.fs, characterId);
   }
 
   async importDictionaries(
