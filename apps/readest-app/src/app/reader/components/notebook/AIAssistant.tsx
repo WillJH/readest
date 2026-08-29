@@ -88,6 +88,7 @@ const AIAssistantChat = ({
   bookHash,
   bookTitle,
   authorName,
+  bookLang,
   currentPage,
   backend,
   sourceStore,
@@ -100,6 +101,7 @@ const AIAssistantChat = ({
   bookHash: string;
   bookTitle: string;
   authorName: string;
+  bookLang?: string;
   currentPage: number;
   backend: RetrievalBackend;
   sourceStore: ReedySourceStore;
@@ -262,6 +264,7 @@ const AIAssistantChat = ({
     : _('Global Settings');
   // The character's default gallery image doubles as the chat backdrop.
   const characterBackgroundUrl = character ? imageUrls[defaultImageIdFor(character)] : undefined;
+  // Book language drives message speech (same source the dictionary popup uses).
 
   return (
     <div className='relative flex h-full min-h-0 flex-col'>
@@ -348,6 +351,7 @@ const AIAssistantChat = ({
         bookHash={bookHash}
         bookTitle={bookTitle}
         transparentThread={!!characterBackgroundUrl}
+        speakLang={bookLang}
       />
     </div>
   );
@@ -366,6 +370,7 @@ const AIAssistantWithRuntime = ({
   bookHash,
   bookTitle,
   transparentThread,
+  speakLang,
 }: {
   adapter: NonNullable<ReturnType<typeof createTauriAdapter>>;
   historyAdapter?: ThreadHistoryAdapter;
@@ -379,6 +384,7 @@ const AIAssistantWithRuntime = ({
   bookHash: string;
   bookTitle: string;
   transparentThread?: boolean;
+  speakLang?: string;
 }) => {
   const runtime = useLocalRuntime(adapter, {
     adapters: historyAdapter ? { history: historyAdapter } : undefined,
@@ -399,6 +405,7 @@ const AIAssistantWithRuntime = ({
         bookHash={bookHash}
         bookTitle={bookTitle}
         transparentThread={transparentThread}
+        speakLang={speakLang}
       />
     </AssistantRuntimeProvider>
   );
@@ -415,6 +422,7 @@ const ThreadWrapper = ({
   bookHash,
   bookTitle,
   transparentThread,
+  speakLang,
 }: {
   onResetIndex: () => void;
   isLoadingHistory: boolean;
@@ -426,6 +434,7 @@ const ThreadWrapper = ({
   bookHash: string;
   bookTitle: string;
   transparentThread?: boolean;
+  speakLang?: string;
 }) => {
   const [sources, setSources] = useState<RetrievedChunk[]>(
     currentTurnId ? sourceStore.get(currentTurnId) : [],
@@ -506,6 +515,7 @@ const ThreadWrapper = ({
       hasActiveConversation={hasActiveConversation}
       avatarUrl={avatarUrl}
       transparentThread={transparentThread}
+      speakLang={speakLang}
     />
   );
 };
@@ -570,6 +580,8 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const bookHash = bookKey.split('-')[0] || '';
   const bookTitle = bookData?.book?.title || 'Unknown';
   const authorName = bookData?.book?.author || '';
+  const langRaw = bookData?.bookDoc?.metadata.language;
+  const bookLang = (Array.isArray(langRaw) ? langRaw[0] : langRaw) ?? undefined;
   const currentPage = progress?.pageinfo?.current ?? 0;
   const aiSettings = settings?.aiSettings;
 
@@ -700,6 +712,7 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
         bookHash={bookHash}
         bookTitle={bookTitle}
         authorName={authorName}
+        bookLang={bookLang}
         currentPage={currentPage}
         backend={backend}
         sourceStore={sourceStore}

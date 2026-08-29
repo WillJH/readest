@@ -24,9 +24,13 @@ import {
   RefreshCwIcon,
   SquareIcon,
   Trash2Icon,
+  Volume2Icon,
 } from 'lucide-react';
 
 import { MarkdownText } from './MarkdownText';
+import { useEnv } from '@/context/EnvContext';
+import { useAiSpeakStore } from '@/store/aiSpeakStore';
+import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -48,6 +52,8 @@ interface ThreadProps {
   avatarUrl?: string;
   /** Drop the thread's own opaque background (character image behind it). */
   transparentThread?: boolean;
+  /** Language used when speaking a message aloud (book language). */
+  speakLang?: string;
 }
 
 const LoadingOverlay: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -114,6 +120,7 @@ export const Thread: FC<ThreadProps> = ({
   hasActiveConversation = false,
   avatarUrl,
   transparentThread = false,
+  speakLang,
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -211,6 +218,7 @@ export const Thread: FC<ThreadProps> = ({
                     sources={sources}
                     onSourceClick={onSourceClick}
                     avatarUrl={avatarUrl}
+                    speakLang={speakLang}
                   />
                 ),
               }}
@@ -303,13 +311,40 @@ interface AssistantMessageProps {
   sources?: SourceItem[];
   onSourceClick?: (source: SourceItem) => void;
   avatarUrl?: string;
+  speakLang?: string;
 }
 
 const AssistantMessage: FC<AssistantMessageProps> = ({
   sources = [],
   onSourceClick,
   avatarUrl,
+  speakLang,
 }) => {
+  const { appService } = useEnv();
+  const messageId = useAssistantState((s) => s.message.id);
+  const messageText = useAssistantState((s) =>
+    s.message.content
+      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+      .map((part) => part.text)
+      .join('\n'),
+  );
+  const speakingId = useAiSpeakStore((s) => s.speakingId);
+  const isSpeaking = speakingId === messageId;
+
+  const handleSpeak = () => {
+    if (isSpeaking) {
+      cancelWordPronounce();
+      useAiSpeakStore.getState().stop();
+      return;
+    }
+    if (!messageText.trim()) return;
+    // Warm synchronously inside the gesture (autoplay policy, see wordPronouncer).
+    warmWordAudio();
+    useAiSpeakStore.getState().start(messageId);
+    void pronounceWord(messageText, speakLang, { appService }, (status) => {
+      if (status !== 'playing') useAiSpeakStore.getState().stop();
+    });
+  };
   const isRunning = useAssistantState((s) => s.message.status?.type === 'running');
   // Latch the avatar while THIS message streams, so later replies picking a
   // different image don't retroactively change earlier ones. Messages loaded
@@ -400,6 +435,22 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              <button
+                type='button'
+                onClick={handleSpeak}
+                aria-label={isSpeaking ? 'Stop' : 'Speak'}
+                title={isSpeaking ? 'Stop' : 'Speak'}
+                className={cn(
+                  'text-base-content/40 hover:bg-base-200 hover:text-base-content flex size-6 items-center justify-center rounded-full transition-colors',
+                  isSpeaking && 'text-base-content not-eink:animate-pulse',
+                )}
+              >
+                {isSpeaking ? (
+                  <SquareIcon className='size-3' />
+                ) : (
+                  <Volume2Icon className='size-3' />
+                )}
+              </button>
               <ActionBarPrimitive.Reload className='text-base-content/40 hover:bg-base-200 hover:text-base-content flex size-6 items-center justify-center rounded-full transition-colors'>
                 <RefreshCwIcon className='size-3' />
               </ActionBarPrimitive.Reload>
