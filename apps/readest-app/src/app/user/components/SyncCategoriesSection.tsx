@@ -72,6 +72,10 @@ const useCategoryCopy = (): Record<SyncCategory, CategoryCopy> => {
       title: _('Reading statistics'),
       description: _('Reading time and pages read, synced across your devices and KOReader.'),
     },
+    vocabulary: {
+      title: _('Vocabulary'),
+      description: _('Saved words with definition snapshots and reading contexts'),
+    },
   };
 };
 

@@ -7,6 +7,7 @@ import { textureAdapter, TEXTURE_KIND } from './adapters/texture';
 import { opdsCatalogAdapter } from './adapters/opdsCatalog';
 import { absServerAdapter } from './adapters/absServer';
 import { settingsAdapter } from './adapters/settings';
+import { vocabularyAdapter } from '@/services/vocabulary/vocabularySync';
 import { getReplicaPersistEnv } from './replicaPersist';
 import { getReplicaAdapter, registerReplicaAdapter } from './replicaRegistry';
 import { registerReplicaDownloadHandler } from './replicaTransferIntegration';
@@ -22,6 +23,8 @@ const KNOWN_ADAPTERS: ReplicaAdapter<unknown>[] = [
   absServerAdapter as unknown as ReplicaAdapter<unknown>,
   // Bundled scalar settings — singleton row, no binary.
   settingsAdapter as unknown as ReplicaAdapter<unknown>,
+  // Vocabulary words — one row per word_key, metadata-only.
+  vocabularyAdapter as unknown as ReplicaAdapter<unknown>,
 ];
 
 let didBootstrap = false;

@@ -25,7 +25,7 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
   const { appService } = useEnv();
   const getView = useReaderStore((s) => s.getView);
   const bookKeys = useReaderStore((s) => s.bookKeys);
-  const { removeWord, refreshIfLoaded } = useVocabularyStore();
+  const { removeWord } = useVocabularyStore();
 
   const [detail, setDetail] = useState<VocabularyWordDetail | null>(null);
 
@@ -48,11 +48,9 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
     async (index: number) => {
       if (!appService || !detail || detail.primaryIndex === index) return;
       setDetail({ ...detail, primaryIndex: index });
-      const db = await VocabularyDb.open(appService);
-      await db.setPrimaryDefinition(detail.id, index);
-      void refreshIfLoaded();
+      await useVocabularyStore.getState().setPrimaryAndPublish(appService, detail.id, index);
     },
-    [appService, detail, refreshIfLoaded],
+    [appService, detail],
   );
 
   const handleDelete = useCallback(async () => {

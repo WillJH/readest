@@ -25,6 +25,7 @@ import { isSystemDictionaryEnabled } from '@/services/dictionaries/registry';
 import { invokeSystemDictionary } from '@/services/dictionaries/systemDictionary';
 import { VocabularyDb } from '@/services/vocabulary/vocabularyDb';
 import { extractSentenceFromRange } from '@/services/vocabulary/sentence';
+import { publishVocabularyUpsert } from '@/services/vocabulary/vocabularySync';
 import type { DefinitionSnapshot } from '@/types/vocabulary';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -1582,7 +1583,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
         const langRaw = bookData.bookDoc?.metadata.language;
         const lang = (Array.isArray(langRaw) ? langRaw[0] : langRaw) ?? null;
         const vocab = await VocabularyDb.open(appService);
-        await vocab.saveWord({ word: trimmed, lang, definitions, context });
+        const saved = await vocab.saveWord({ word: trimmed, lang, definitions, context });
+        publishVocabularyUpsert(saved);
         void useVocabularyStore.getState().refreshIfLoaded();
         if (!auto) {
           eventDispatcher.dispatch('toast', {

@@ -324,7 +324,8 @@ export type SyncCategory =
   | 'abs_server'
   | 'settings'
   | 'credentials'
-  | 'stats';
+  | 'stats'
+  | 'vocabulary';
 
 export const SYNC_CATEGORIES: readonly SyncCategory[] = [
   'book',
@@ -338,6 +339,7 @@ export const SYNC_CATEGORIES: readonly SyncCategory[] = [
   'settings',
   'stats',
   'credentials',
+  'vocabulary',
 ] as const;
 
 export interface KeyBinding {

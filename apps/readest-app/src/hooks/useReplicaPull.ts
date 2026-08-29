@@ -20,6 +20,12 @@ import { dictionaryAdapter } from '@/services/sync/adapters/dictionary';
 import { fontAdapter } from '@/services/sync/adapters/font';
 import { textureAdapter } from '@/services/sync/adapters/texture';
 import { opdsCatalogAdapter } from '@/services/sync/adapters/opdsCatalog';
+import {
+  vocabularyAdapter,
+  vocabularyContentId,
+  type VocabularyReplicaRecord,
+} from '@/services/vocabulary/vocabularySync';
+import { useVocabularyStore } from '@/store/vocabularyStore';
 import { absServerAdapter } from '@/services/sync/adapters/absServer';
 import { settingsAdapter, type SettingsRemoteRecord } from '@/services/sync/adapters/settings';
 import {
@@ -56,7 +62,8 @@ export type ReplicaKind =
   | 'texture'
   | 'opds_catalog'
   | 'abs_server'
-  | 'settings';
+  | 'settings'
+  | 'vocabulary';
 
 export interface UseReplicaPullOpts {
   /** Replica kinds this page wants pulled. */
@@ -315,6 +322,53 @@ const settingsPullConfig = (envConfig: EnvConfigType): ReplicaPullConfig<Setting
   },
 });
 
+const vocabularyPullConfig = (
+  envConfig: EnvConfigType,
+): ReplicaPullConfig<VocabularyReplicaRecord> => ({
+  kind: 'vocabulary',
+  // metadata-only — no baseDir
+  adapter: vocabularyAdapter,
+  findByContentId: (id) => {
+    const local = useVocabularyStore
+      .getState()
+      .words.find((w) => vocabularyContentId(w.word) === id);
+    return local
+      ? {
+          name: local.word,
+          word: local.word,
+          wordKey: local.word.trim().toLowerCase(),
+          lang: local.lang,
+          definitions: local.definitions,
+          primaryIndex: local.primaryIndex,
+          lastBookTitle: local.lastBookTitle,
+          contexts: [],
+          createdAt: local.createdAt,
+          updatedAt: local.updatedAt,
+        }
+      : undefined;
+  },
+  // Fold the remote snapshot into the local SQLite via the same merge
+  // saveWord uses (definitions refreshed when newer, contexts unioned by
+  // (book, cfi)) — never republishing from the apply path.
+  applyRemote: (record) => {
+    void useVocabularyStore
+      .getState()
+      .applyRemoteWord(envConfig, record)
+      .catch((err) => console.warn('[vocab-sync] apply failed:', err));
+  },
+  softDeleteByContentId: (id) => {
+    const local = useVocabularyStore
+      .getState()
+      .words.find((w) => vocabularyContentId(w.word) === id);
+    if (local) {
+      void useVocabularyStore
+        .getState()
+        .removeWordLocal(id)
+        .catch((err) => console.warn('[vocab-sync] tombstone apply failed:', err));
+    }
+  },
+});
+
 /**
  * Per-kind dispatch for both the boot pull (one HTTP per kind) and the
  * incremental apply (rows already fetched in a batch). Keeping the
@@ -399,6 +453,18 @@ const runPullForKind = async (
           service,
           envConfig,
           settingsPullConfig(envConfig),
+          pullOpts,
+          pullOverride,
+        ),
+      );
+      return;
+    case 'vocabulary':
+      await replicaPullAndApply(
+        buildReplicaPullDeps(
+          ctx.manager,
+          service,
+          envConfig,
+          vocabularyPullConfig(envConfig),
           pullOpts,
           pullOverride,
         ),

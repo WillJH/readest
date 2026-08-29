@@ -2335,5 +2335,6 @@
   "No {{persona}} placeholder — character and connection prompts are ignored.": "缺少 {{persona}} 占位符——角色和连接的提示词将被忽略。",
   "No {{bookPassages}} placeholder — retrieved book context is not injected.": "缺少 {{bookPassages}} 占位符——检索到的书籍上下文不会注入。",
   "MCP Tools (optional)": "MCP 工具(可选)",
-  "Off by default — check the servers this connection may use. Unchecked means no tools.": "默认关闭——勾选此连接可使用的服务器;不勾选则不使用任何工具。"
+  "Off by default — check the servers this connection may use. Unchecked means no tools.": "默认关闭——勾选此连接可使用的服务器;不勾选则不使用任何工具。",
+  "Saved words with definition snapshots and reading contexts": "收藏的生词,含释义快照与阅读语境"
 }
