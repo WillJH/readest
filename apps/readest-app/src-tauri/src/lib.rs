@@ -317,6 +317,23 @@ struct SingleInstancePayload {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Desktop-Linux display defaults, set before any GTK/WebKit init. On the
+    // proprietary NVIDIA driver WebKitGTK's DMABUF renderer fails GBM buffer
+    // allocation (EINVAL) in both backends, and once it is disabled the
+    // Wayland software path loses subpixel text AA (blurry glyphs, worst at
+    // fractional scales) while the X11 software path keeps it crisp. Default
+    // to that combo; an explicit user env always wins, so retesting native
+    // Wayland stays a one-liner (`GDK_BACKEND=wayland ...`).
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var_os("GDK_BACKEND").is_none() {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     // Initialize Sentry as early as possible so panics during startup are
     // captured. `None` DSN (unset SENTRY_DSN) => disabled, so local and fork
     // builds don't report. This client covers Rust panics and the events the

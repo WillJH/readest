@@ -23,6 +23,14 @@
   pnpm tauri android build --target aarch64 --apk
   # 产物: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk (~82MB)
   ```
+- Linux 桌面出包(AppImage,约 4 分钟;依赖已装:webkit2gtk-4.1/gtk3/fuse2/xdg-utils):
+  ```bash
+  export PATH="$HOME/.cargo/bin:$PATH" NO_STRIP=true
+  pnpm tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
+  # 产物: target/release/bundle/appimage/Readest_*_amd64.AppImage (~130MB);deb/rpm 用 --bundles deb,rpm
+  ```
+  三个坑:`createUpdaterArtifacts` 必须关(更新器公钥是官方的,私钥拿不到,不关则打包失败);`NO_STRIP=true` 必须加(Arch 新库的 RELR 段让 linuxdeploy 内置老 strip 报错);容器 `/usr/lib/gdk-pixbuf-2.0/2.10.0/` 需手工存在(Arch 的 gdk-pixbuf 2.44 不再带 loaders 目录,旧版 linuxdeploy gtk 插件 cp 失败会整个挂掉——重建容器后要 `mkdir -p .../loaders && gdk-pixbuf-query-loaders > .../loaders.cache`)。
+- 桌面显示策略(2026-08 定):用户 NVIDIA RTX 4070 Ti 专有驱动(`nvidia-drm.modeset=Y` 仍复现)+ Wayland 分数缩放。WebKit 的 DMABUF 渲染器 GBM 分配 EINVAL(两后端同败);禁掉后 Wayland 软渲染丢失子像素 AA(字体发虚),X11 软渲染保持锐利。故 `lib.rs::run()` 顶部已烘焙默认 `GDK_BACKEND=x11` + `WEBKIT_DISABLE_DMABUF_RENDERER=1`(均仅在用户未设置时生效;`GDK_BACKEND=wayland ./Readest...` 仍可复测)。新主屏/驱动升级后值得复测原生 Wayland。
 - 验证流水线:`npx tsc --noEmit`(须零错)+ `npx biome lint .`(零 warn)+ `pnpm vitest run`。**注意**:本容器全量 vitest 有 ~368 个预置环境性失败(supabase env 缺失类,干净 main 分支同样存在);判定标准是与基线的 FAIL 列表做 `comm -13` 差集(基线快照存于 /tmp/*-fails.txt,重开会话需重建:先在 main 跑一次全量记录基线,再对比)。涉及 supabase 导入链的新测试需 `vi.mock('@/utils/supabane'/'@/utils/access')`(仓库已有先例)。
 - `pnpm-workspace.yaml` 注册了 `patches/@assistant-ui__react@0.11.58.patch`(修复库内 detached-call 崩溃,详见 §2.6)。
 
