@@ -59,18 +59,15 @@ describe('resolveConnectionSettings', () => {
 });
 
 describe('resolveConnectionMcpServers', () => {
-  it('inherits all live servers without a connection or without a binding', async () => {
+  it('no binding (or no connection) means NO tools — MCP is strictly opt-in', async () => {
     const { resolveConnectionMcpServers } = await import('@/services/ai/connectionSettings');
     const servers = [
       { id: 'a', name: 'A', deletedAt: 1 } as never,
       { id: 'b', name: 'B' } as never,
       { id: 'c', name: 'C' } as never,
     ];
-    expect(resolveConnectionMcpServers(servers)).toEqual([servers[1], servers[2]]);
-    expect(resolveConnectionMcpServers(servers, { mcpServerIds: undefined } as never)).toEqual([
-      servers[1],
-      servers[2],
-    ]);
+    expect(resolveConnectionMcpServers(servers)).toEqual([]);
+    expect(resolveConnectionMcpServers(servers, { mcpServerIds: undefined } as never)).toEqual([]);
   });
 
   it('a defined binding restricts to exactly those ids, skipping stale ones', async () => {

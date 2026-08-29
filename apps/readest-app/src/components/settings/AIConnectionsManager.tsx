@@ -314,9 +314,9 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                   })}
                 </div>
                 <span className='text-base-content/60 text-xs'>
-                  {editor.mcpServerIds === undefined
-                    ? _('No selection stored — inherits every enabled MCP server.')
-                    : _('Empty selection — this connection gets no MCP tools.')}
+                  {_(
+                    'Off by default — check the servers this connection may use. Unchecked means no tools.',
+                  )}
                 </span>
               </div>
             )}

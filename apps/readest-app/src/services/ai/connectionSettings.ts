@@ -33,17 +33,16 @@ export function resolveConnectionSettings(
 }
 
 /**
- * The MCP servers a connection may use. A connection that defines
- * `mcpServerIds` gets exactly that set (stale ids skipped); one that
- * doesn't (or no connection at all) inherits every configured server —
- * enable/disable on the server itself remains the global switch.
+ * The MCP servers a connection may use — only what was explicitly checked
+ * in the connection editor. No binding (or no connection) means NO tools:
+ * MCP is strictly opt-in per connection, never inherited by default.
  */
 export function resolveConnectionMcpServers(
   servers: AIMcpServer[],
   connection?: AIConnection | null,
 ): AIMcpServer[] {
   const live = servers.filter((s) => !s.deletedAt);
-  if (!connection?.mcpServerIds) return live;
+  if (!connection?.mcpServerIds) return [];
   const ids = new Set(connection.mcpServerIds);
   return live.filter((s) => ids.has(s.id));
 }
