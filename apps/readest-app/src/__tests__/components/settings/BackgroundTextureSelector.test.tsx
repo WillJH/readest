@@ -12,6 +12,22 @@ vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string) => s,
 }));
 
+// The rotation section added useEnv/useSettingsStore/saveSysSettings to the
+// selector; keep this test focused on the scope switcher by stubbing them.
+vi.mock('@/context/EnvContext', () => ({
+  useEnv: () => ({ envConfig: null, appService: null }),
+}));
+
+vi.mock('@/store/settingsStore', () => ({
+  useSettingsStore: (
+    selector?: (s: { settings: { backgroundTextureRotation?: unknown } }) => unknown,
+  ) => (selector ? selector({ settings: {} }) : { settings: {} }),
+}));
+
+vi.mock('@/helpers/settings', () => ({
+  saveSysSettings: vi.fn(),
+}));
+
 import BackgroundTextureSelector from '@/components/settings/theme/BackgroundTextureSelector';
 
 afterEach(() => cleanup());

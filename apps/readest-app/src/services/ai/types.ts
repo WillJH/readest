@@ -143,13 +143,6 @@ export interface AICharacterImage {
 }
 
 /**
- * How the assistant engages: 'response' (default) answers when the user
- * asks; 'companion' is allowed to speak up on its own while the user reads
- * (delivered in a later phase — the field is stored per character now).
- */
-export type AIAssistantMode = 'response' | 'companion';
-
-/**
  * A saved AI provider connection (profile). Characters bind one via
  * `connectionId`; without a binding the global AISettings provider is used.
  */
@@ -182,8 +175,6 @@ export interface AICharacter {
   defaultImageId?: string;
   /** Provider connection this character chats through; unset = global. */
   connectionId?: string;
-  /** Engagement mode; 'response' unless the character opts into companionship. */
-  mode?: AIAssistantMode;
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;

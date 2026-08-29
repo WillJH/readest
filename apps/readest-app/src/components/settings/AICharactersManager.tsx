@@ -302,23 +302,6 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
             </div>
 
             <div className='flex flex-col gap-2'>
-              <span className='text-base-content/70 text-sm font-medium'>{_('Mode')}</span>
-              <select
-                value={editor.mode ?? 'response'}
-                onChange={(e) =>
-                  setEditor({ ...editor, mode: e.target.value as AICharacter['mode'] })
-                }
-                className='select select-sm w-full bg-base-100'
-              >
-                <option value='response'>{_('Response Mode — speaks when asked')}</option>
-                <option value='companion'>{_('Companion Mode — speaks up on its own')}</option>
-              </select>
-              <span className='text-base-content/60 text-xs'>
-                {_('Companion mode arrives in a later update; stored per character.')}
-              </span>
-            </div>
-
-            <div className='flex flex-col gap-2'>
               <span className='text-base-content/70 text-sm font-medium'>
                 {_('Avatar Gallery')}
               </span>
