@@ -23,6 +23,20 @@ export const computeTextureContentId = (
  * and byteSize populated so the store can publish the replica row
  * immediately.
  */
+/**
+ * Android's media scanner skips Android/data by convention, but some OEM
+ * gallery/cleaner apps scan aggressively. A .nomedia at the Images root
+ * makes every conforming scanner skip the whole tree — textures and
+ * character avatars alike. Idempotent, best-effort.
+ */
+export async function ensureNoMediaMarker(fs: FileSystem): Promise<void> {
+  try {
+    await fs.writeFile('.nomedia', 'Images', '');
+  } catch (err) {
+    console.warn('Failed to write .nomedia marker', err);
+  }
+}
+
 export async function importImage(
   fs: FileSystem,
   file?: string | File,
@@ -45,6 +59,7 @@ export async function importImage(
 
   const texturePath = `${bundleDir}/${filename}`;
   await fs.createDir(bundleDir, 'Images', true);
+  await ensureNoMediaMarker(fs);
   await fs.writeFile(texturePath, 'Images', bytes);
 
   const textureFile = await fs.openFile(texturePath, 'Images');

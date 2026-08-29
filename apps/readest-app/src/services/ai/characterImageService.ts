@@ -2,6 +2,7 @@ import { FileSystem } from '@/types/system';
 import { getFilename } from '@/utils/path';
 import { md5, partialMD5 } from '@/utils/md5';
 import { uniqueId } from '@/utils/misc';
+import { ensureNoMediaMarker } from '@/services/imageService';
 import type { AICharacterImage } from './types';
 
 /** Avatars render at ~28–64 px; anything larger is wasted bytes in settings-bound storage. */
@@ -91,6 +92,7 @@ export async function importCharacterImage(
   const path = characterImagePath(characterId, storedName);
 
   await fs.createDir(`${CHARACTER_IMAGES_DIR}/${characterId}`, 'Images', true);
+  await ensureNoMediaMarker(fs);
   await fs.writeFile(path, 'Images', normalized.bytes);
 
   const stored = await fs.openFile(path, 'Images');
