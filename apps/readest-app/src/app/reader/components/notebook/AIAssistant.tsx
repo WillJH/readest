@@ -260,65 +260,80 @@ const AIAssistantChat = ({
   const connectionLabel = connection
     ? `${connection.name}${connection.model ? ` · ${connection.model}` : ''}`
     : _('Global Settings');
+  // The character's default gallery image doubles as the chat backdrop.
+  const characterBackgroundUrl = character ? imageUrls[defaultImageIdFor(character)] : undefined;
 
   return (
-    <div className='flex h-full min-h-0 flex-col'>
-      {/* Character rail — the assistant always has a face, one tap to switch. */}
-      <div className='border-base-300/40 flex items-center gap-1.5 border-b px-3 pt-2 pb-2'>
-        <button
-          type='button'
-          onClick={() => selectCharacter(null)}
-          title={_('Default Companion')}
-          aria-label={_('Default Companion')}
-          aria-pressed={characterId == null}
-          className={clsx(
-            'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
-            characterId == null
-              ? 'bg-primary/15 text-primary'
-              : 'text-base-content/50 hover:bg-base-200/60',
-          )}
-        >
-          <BookOpenIcon className='size-4' />
-        </button>
-        <div className='flex min-w-0 flex-1 items-center gap-2 overflow-x-auto'>
-          {characters.map((c) => {
-            const selected = c.id === characterId;
-            return (
-              <button
-                key={c.id}
-                type='button'
-                onClick={() => selectCharacter(c.id)}
-                title={c.name}
-                aria-label={c.name}
-                aria-pressed={selected}
-                className={clsx(
-                  'shrink-0 rounded-full transition-all',
-                  selected
-                    ? 'ring-primary ring-2 ring-offset-base-100 ring-offset-2'
-                    : 'opacity-70 hover:opacity-100',
-                )}
-              >
-                <CharacterAvatar name={c.name} url={imageUrls[defaultImageIdFor(c)]} size={32} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Identity card — who is on the other side, through which model. */}
-      {character && (
-        <div className='flex items-center gap-2.5 px-3 pt-2 pb-1'>
-          <CharacterAvatar
-            name={character.name}
-            url={imageUrls[defaultImageIdFor(character)]}
-            size={36}
-          />
-          <div className='min-w-0 flex-1'>
-            <div className='text-base-content truncate text-sm font-semibold'>{character.name}</div>
-            <div className='text-base-content/55 truncate text-xs'>{connectionLabel}</div>
-          </div>
+    <div className='relative flex h-full min-h-0 flex-col'>
+      {/* The assistant's own image as the chat backdrop, with a scrim for
+          readability. The thread turns transparent when this is active. */}
+      {characterBackgroundUrl && (
+        <div aria-hidden='true' className='pointer-events-none absolute inset-0 overflow-hidden'>
+          <img src={characterBackgroundUrl} alt='' className='size-full scale-105 object-cover' />
+          <div className='from-base-100/85 via-base-100/70 to-base-100/90 absolute inset-0 bg-gradient-to-b' />
         </div>
       )}
+
+      <div className='relative z-10 flex h-full min-h-0 flex-1 flex-col'>
+        {/* Character rail — the assistant always has a face, one tap to switch. */}
+        <div className='border-base-300/40 flex items-center gap-1.5 border-b px-3 pt-2 pb-2'>
+          <button
+            type='button'
+            onClick={() => selectCharacter(null)}
+            title={_('Default Companion')}
+            aria-label={_('Default Companion')}
+            aria-pressed={characterId == null}
+            className={clsx(
+              'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
+              characterId == null
+                ? 'bg-primary/15 text-primary'
+                : 'text-base-content/50 hover:bg-base-200/60',
+            )}
+          >
+            <BookOpenIcon className='size-4' />
+          </button>
+          <div className='flex min-w-0 flex-1 items-center gap-2 overflow-x-auto'>
+            {characters.map((c) => {
+              const selected = c.id === characterId;
+              return (
+                <button
+                  key={c.id}
+                  type='button'
+                  onClick={() => selectCharacter(c.id)}
+                  title={c.name}
+                  aria-label={c.name}
+                  aria-pressed={selected}
+                  className={clsx(
+                    'shrink-0 rounded-full transition-all',
+                    selected
+                      ? 'ring-primary ring-2 ring-offset-base-100 ring-offset-2'
+                      : 'opacity-70 hover:opacity-100',
+                  )}
+                >
+                  <CharacterAvatar name={c.name} url={imageUrls[defaultImageIdFor(c)]} size={32} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Identity card — who is on the other side, through which model. */}
+        {character && (
+          <div className='flex items-center gap-2.5 px-3 pt-2 pb-1'>
+            <CharacterAvatar
+              name={character.name}
+              url={imageUrls[defaultImageIdFor(character)]}
+              size={36}
+            />
+            <div className='min-w-0 flex-1'>
+              <div className='text-base-content truncate text-sm font-semibold'>
+                {character.name}
+              </div>
+              <div className='text-base-content/55 truncate text-xs'>{connectionLabel}</div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <AIAssistantWithRuntime
         adapter={adapter}
@@ -332,6 +347,7 @@ const AIAssistantChat = ({
         avatarUrl={avatarUrl}
         bookHash={bookHash}
         bookTitle={bookTitle}
+        transparentThread={!!characterBackgroundUrl}
       />
     </div>
   );
@@ -349,6 +365,7 @@ const AIAssistantWithRuntime = ({
   avatarUrl,
   bookHash,
   bookTitle,
+  transparentThread,
 }: {
   adapter: NonNullable<ReturnType<typeof createTauriAdapter>>;
   historyAdapter?: ThreadHistoryAdapter;
@@ -361,6 +378,7 @@ const AIAssistantWithRuntime = ({
   avatarUrl?: string;
   bookHash: string;
   bookTitle: string;
+  transparentThread?: boolean;
 }) => {
   const runtime = useLocalRuntime(adapter, {
     adapters: historyAdapter ? { history: historyAdapter } : undefined,
@@ -380,6 +398,7 @@ const AIAssistantWithRuntime = ({
         avatarUrl={avatarUrl}
         bookHash={bookHash}
         bookTitle={bookTitle}
+        transparentThread={transparentThread}
       />
     </AssistantRuntimeProvider>
   );
@@ -395,6 +414,7 @@ const ThreadWrapper = ({
   avatarUrl,
   bookHash,
   bookTitle,
+  transparentThread,
 }: {
   onResetIndex: () => void;
   isLoadingHistory: boolean;
@@ -405,6 +425,7 @@ const ThreadWrapper = ({
   avatarUrl?: string;
   bookHash: string;
   bookTitle: string;
+  transparentThread?: boolean;
 }) => {
   const [sources, setSources] = useState<RetrievedChunk[]>(
     currentTurnId ? sourceStore.get(currentTurnId) : [],
@@ -484,6 +505,7 @@ const ThreadWrapper = ({
       isLoadingHistory={isLoadingHistory}
       hasActiveConversation={hasActiveConversation}
       avatarUrl={avatarUrl}
+      transparentThread={transparentThread}
     />
   );
 };

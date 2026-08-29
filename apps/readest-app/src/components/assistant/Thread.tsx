@@ -46,6 +46,8 @@ interface ThreadProps {
   hasActiveConversation?: boolean;
   /** Character avatar for assistant messages (latest pick / default image). */
   avatarUrl?: string;
+  /** Drop the thread's own opaque background (character image behind it). */
+  transparentThread?: boolean;
 }
 
 const LoadingOverlay: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -111,6 +113,7 @@ export const Thread: FC<ThreadProps> = ({
   isLoadingHistory = false,
   hasActiveConversation = false,
   avatarUrl,
+  transparentThread = false,
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -164,7 +167,12 @@ export const Thread: FC<ThreadProps> = ({
   };
 
   return (
-    <ThreadPrimitive.Root className='bg-base-100 relative flex h-full w-full flex-col items-stretch px-3'>
+    <ThreadPrimitive.Root
+      className={cn(
+        'relative flex h-full w-full flex-col items-stretch px-3',
+        transparentThread ? 'bg-transparent' : 'bg-base-100',
+      )}
+    >
       <LoadingOverlay isVisible={showLoading} />
 
       {!hasActiveConversation && (
