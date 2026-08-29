@@ -48,6 +48,10 @@ vi.mock('@/app/reader/components/sidebar/ChatHistoryView', () => ({
   default: () => <div>history content</div>,
 }));
 
+vi.mock('@/app/reader/components/sidebar/VocabularyView', () => ({
+  default: () => <div>vocabulary content</div>,
+}));
+
 vi.mock('@/app/reader/components/sidebar/TabNavigation', () => ({
   default: ({
     activeTab,

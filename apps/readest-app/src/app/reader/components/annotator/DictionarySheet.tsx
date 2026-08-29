@@ -7,6 +7,8 @@ import {
   useDictionaryResults,
   DictionaryResultsHeader,
   DictionaryResultsBody,
+  vocabularyHeaderProps,
+  UseDictionaryResultsArgs,
 } from './DictionaryResultsView';
 
 interface DictionarySheetProps {
@@ -14,10 +16,18 @@ interface DictionarySheetProps {
   lang?: string;
   onDismiss: () => void;
   onManage?: () => void;
+  /** Persist a word to the vocabulary book (manual + auto capture). */
+  onVocabularyCapture?: UseDictionaryResultsArgs['onVocabularyCapture'];
 }
 
-const DictionarySheet: React.FC<DictionarySheetProps> = ({ word, lang, onDismiss, onManage }) => {
-  const state = useDictionaryResults({ word, lang });
+const DictionarySheet: React.FC<DictionarySheetProps> = ({
+  word,
+  lang,
+  onDismiss,
+  onManage,
+  onVocabularyCapture,
+}) => {
+  const state = useDictionaryResults({ word, lang, onVocabularyCapture });
   return (
     <Dialog
       isOpen
@@ -35,6 +45,7 @@ const DictionarySheet: React.FC<DictionarySheetProps> = ({ word, lang, onDismiss
           onManage={onManage}
           onSpeak={state.speakWord}
           speaking={state.isSpeaking}
+          {...vocabularyHeaderProps(state, onVocabularyCapture)}
         />
       }
       contentClassName='px-0! mt-0!'

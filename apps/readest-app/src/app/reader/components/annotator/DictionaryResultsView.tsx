@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MdArrowBack, MdChevronRight, MdSettings, MdVolumeUp } from 'react-icons/md';
+import { LuBookMarked, LuBookPlus } from 'react-icons/lu';
 import clsx from 'clsx';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
@@ -13,6 +14,7 @@ import { getEnabledProviders } from '@/services/dictionaries/registry';
 import { buildLookupCandidates } from '@/services/dictionaries/lookupCandidates';
 import { isTauriAppPlatform } from '@/services/environment';
 import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
+import type { DefinitionSnapshot } from '@/types/vocabulary';
 import {
   getBuiltinWebSearch,
   substituteUrlTemplate,
@@ -32,9 +34,25 @@ interface CardState {
   expanded: boolean;
 }
 
+/** Identity of one lookup: word + language, used to match cards to results. */
+function loadKeyOf(word: string, langCode?: string): string {
+  return `${word}::${langCode || ''}`;
+}
+
 export interface UseDictionaryResultsArgs {
   word: string;
   lang?: string;
+  /**
+   * Persist a word to the vocabulary book. The host (Annotator) owns the
+   * selection/book context and the auto-add setting; `auto` marks the
+   * silent capture of the popup's initial lookup (no toast). Resolves
+   * `true` when the word was saved — drives the header's saved state.
+   */
+  onVocabularyCapture?: (
+    word: string,
+    definitions: DefinitionSnapshot[],
+    opts: { auto: boolean },
+  ) => boolean | Promise<boolean>;
 }
 
 export interface DictionaryResultsState {
@@ -58,6 +76,11 @@ export interface DictionaryResultsState {
   isSpeaking: boolean;
   /** Pronounce the current word via Edge TTS (falling back to platform speech). */
   speakWord: () => void;
+  /** Snapshot the loaded dictionaries' rendered entries for vocabulary capture. */
+  collectDefinitionSnapshots: () => DefinitionSnapshot[];
+  /** Words saved during this popup session (header shows the saved state). */
+  savedVocabularyWords: ReadonlySet<string>;
+  markVocabularySaved: (word: string) => void;
 }
 
 /**
@@ -76,6 +99,7 @@ export interface DictionaryResultsState {
 export function useDictionaryResults({
   word,
   lang,
+  onVocabularyCapture,
 }: UseDictionaryResultsArgs): DictionaryResultsState {
   const { appService } = useEnv();
   const { dictionaries, settings } = useCustomDictionaryStore();
@@ -140,7 +164,7 @@ export function useDictionaryResults({
   // Edge fetch and playback so the header button can show one active state.
   const [isSpeaking, setIsSpeaking] = useState(false);
   const langCode = typeof lang === 'string' ? lang : Array.isArray(lang) ? lang[0] : undefined;
-  const loadKey = `${currentWord}::${langCode || ''}`;
+  const loadKey = loadKeyOf(currentWord, langCode);
   const speakWord = useCallback(() => {
     // Warm the audio context synchronously inside the click gesture; the
     // synth/play happens after a network await, outside the gesture window.
@@ -316,6 +340,87 @@ export function useDictionaryResults({
     return card.loadKey !== loadKey || card.state === 'loading' || card.state === 'loaded';
   });
 
+  // --- Vocabulary capture -------------------------------------------------
+  // Providers render straight into the DOM, so the only faithful "definition
+  // snapshot" is the visible text of each loaded card's container at capture
+  // time — exactly what the user saw when they saved the word.
+  const collectDefinitionSnapshots = useCallback((): DefinitionSnapshot[] => {
+    const snapshots: DefinitionSnapshot[] = [];
+    for (const [id, card] of Object.entries(cards)) {
+      if (card.state !== 'loaded' || card.loadKey !== loadKey) continue;
+      const container = containerRefs.current.get(id);
+      const content = (container?.innerText ?? container?.textContent)?.trim();
+      if (!content) continue;
+      const source =
+        card.outcome?.ok && card.outcome.sourceLabel
+          ? card.outcome.sourceLabel
+          : (definitionProviders.find((p) => p.id === id)?.label ?? id);
+      snapshots.push({ source, content });
+    }
+    return snapshots;
+  }, [cards, loadKey, definitionProviders]);
+
+  const [savedVocabularyWords, setSavedVocabularyWords] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const markVocabularySaved = useCallback((savedWord: string) => {
+    setSavedVocabularyWords((prev) => {
+      if (prev.has(savedWord)) return prev;
+      const next = new Set(prev);
+      next.add(savedWord);
+      return next;
+    });
+  }, []);
+
+  // Auto-capture the popup's initial lookup (not in-content navigation —
+  // tapping around a dictionary entry must not silently save every linked
+  // word). Fires when every provider has settled, with a backstop timeout so
+  // a hung web provider can't suppress the capture. The Annotator decides
+  // whether auto-add is enabled and owns the selection/book context.
+  const autoCapturedRef = useRef<string | null>(null);
+  const initialLoadKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    initialLoadKeyRef.current = loadKeyOf(word, langCode);
+    autoCapturedRef.current = null;
+  }, [word, langCode]);
+  const runAutoCapture = useCallback(
+    (captureWord: string) => {
+      const capture = onVocabularyCapture;
+      if (!capture || definitionProviders.length === 0) return false;
+      autoCapturedRef.current = loadKeyOf(captureWord, langCode);
+      void Promise.resolve(capture(captureWord, collectDefinitionSnapshots(), { auto: true })).then(
+        (saved) => saved && markVocabularySaved(captureWord),
+      );
+      return true;
+    },
+    [
+      onVocabularyCapture,
+      definitionProviders.length,
+      langCode,
+      collectDefinitionSnapshots,
+      markVocabularySaved,
+    ],
+  );
+  useEffect(() => {
+    const key = loadKeyOf(currentWord, langCode);
+    if (!onVocabularyCapture || autoCapturedRef.current === key) return;
+    if (key !== initialLoadKeyRef.current) return;
+    const entries = Object.values(cards);
+    if (entries.length === 0) return;
+    const settled = entries.every((c) => c.state !== 'loading' && c.loadKey === key);
+    if (settled) runAutoCapture(currentWord);
+  }, [cards, currentWord, langCode, onVocabularyCapture, runAutoCapture]);
+  useEffect(() => {
+    if (!onVocabularyCapture) return;
+    const timer = setTimeout(() => {
+      const key = loadKeyOf(currentWord, langCode);
+      if (autoCapturedRef.current === key) return;
+      if (key !== initialLoadKeyRef.current) return;
+      runAutoCapture(currentWord);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [currentWord, langCode, onVocabularyCapture, runAutoCapture]);
+
   const resolveWebSearchUrl = useCallback(
     (id: string): string | undefined => {
       if (id.startsWith('web:builtin:')) {
@@ -363,6 +468,9 @@ export function useDictionaryResults({
     fontScale: settings.fontScale ?? 1,
     isSpeaking,
     speakWord,
+    collectDefinitionSnapshots,
+    savedVocabularyWords,
+    markVocabularySaved,
   };
 }
 
@@ -376,6 +484,31 @@ interface DictionaryResultsHeaderProps {
   onSpeak?: () => void;
   /** Whether pronunciation is in progress, for the active button state. */
   speaking?: boolean;
+  /** Save the displayed word to the vocabulary book; omit to hide the button. */
+  onAddToVocabulary?: () => void;
+  /** Whether the displayed word is already saved (filled-bookmark state). */
+  vocabularySaved?: boolean;
+}
+
+/** Header props wiring for the wrappers: manual save + saved-state display. */
+export function vocabularyHeaderProps(
+  state: Pick<
+    DictionaryResultsState,
+    'currentWord' | 'collectDefinitionSnapshots' | 'savedVocabularyWords' | 'markVocabularySaved'
+  >,
+  onVocabularyCapture?: UseDictionaryResultsArgs['onVocabularyCapture'],
+): Pick<DictionaryResultsHeaderProps, 'onAddToVocabulary' | 'vocabularySaved'> {
+  if (!onVocabularyCapture) return {};
+  return {
+    onAddToVocabulary: () => {
+      void Promise.resolve(
+        onVocabularyCapture(state.currentWord, state.collectDefinitionSnapshots(), {
+          auto: false,
+        }),
+      ).then((saved) => saved && state.markVocabularySaved(state.currentWord));
+    },
+    vocabularySaved: state.savedVocabularyWords.has(state.currentWord),
+  };
 }
 
 export const DictionaryResultsHeader: React.FC<DictionaryResultsHeaderProps> = ({
@@ -386,6 +519,8 @@ export const DictionaryResultsHeader: React.FC<DictionaryResultsHeaderProps> = (
   onManage,
   onSpeak,
   speaking,
+  onAddToVocabulary,
+  vocabularySaved,
 }) => {
   const _ = useTranslation();
   return (
@@ -424,7 +559,24 @@ export const DictionaryResultsHeader: React.FC<DictionaryResultsHeaderProps> = (
           {currentWord}
         </span>
       </div>
-      <div className='flex h-8 w-8 items-center justify-center'>
+      <div className='flex h-8 items-center justify-center gap-0.5'>
+        {onAddToVocabulary ? (
+          <button
+            type='button'
+            aria-label={_('Save to Vocabulary')}
+            title={_('Save to Vocabulary')}
+            aria-pressed={!!vocabularySaved}
+            onClick={onAddToVocabulary}
+            className={clsx(
+              'btn btn-ghost btn-square btn-xs',
+              vocabularySaved
+                ? 'text-primary'
+                : 'text-base-content/60 hover:text-base-content not-eink:hover:bg-base-200/60',
+            )}
+          >
+            {vocabularySaved ? <LuBookMarked size={16} /> : <LuBookPlus size={16} />}
+          </button>
+        ) : null}
         {onManage ? (
           <button
             type='button'

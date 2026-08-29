@@ -23,6 +23,10 @@ import { useSidebarStore } from '@/store/sidebarStore';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { isSystemDictionaryEnabled } from '@/services/dictionaries/registry';
 import { invokeSystemDictionary } from '@/services/dictionaries/systemDictionary';
+import { VocabularyDb } from '@/services/vocabulary/vocabularyDb';
+import { extractSentenceFromRange } from '@/services/vocabulary/sentence';
+import type { DefinitionSnapshot } from '@/types/vocabulary';
+import { useVocabularyStore } from '@/store/vocabularyStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useDeviceControlStore } from '@/store/deviceStore';
@@ -161,6 +165,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const [selection, setSelection] = useState<TextSelection | null>(null);
+  // Latest-ref mirror so the vocabulary capture callback can read the current
+  // selection without re-creating (it's a dep of effects in the dictionary
+  // popup's lookup hook, where an unstable identity would re-run them).
+  const selectionRef = useRef<TextSelection | null>(null);
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
   const [translationEpoch, setTranslationEpoch] = useState(0);
   const [showAnnotPopup, setShowAnnotPopup] = useState(false);
   const [showDictionaryPopup, setShowDictionaryPopup] = useState(false);
@@ -1534,6 +1545,68 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     setShowDictionaryPopup(true);
   };
 
+  // Persist a dictionary-lookup word to the vocabulary book with the
+  // definition snapshot (what the loaded dictionaries rendered) and, when the
+  // word is the current text selection, the sentence + CFI it appeared in.
+  // `auto` is the silent capture of the popup's initial lookup — gated on the
+  // settings toggle and never toasts. Manual saves confirm via toast.
+  const handleVocabularyCapture = useCallback(
+    async (
+      word: string,
+      definitions: DefinitionSnapshot[],
+      { auto }: { auto: boolean },
+    ): Promise<boolean> => {
+      const trimmed = word.trim();
+      if (!trimmed) return false;
+      if (auto && !useSettingsStore.getState().settings?.autoAddVocabulary) return false;
+      if (!appService) return false;
+      try {
+        const sel = selectionRef.current;
+        const book = useBookDataStore.getState().getBookData(bookKey)?.book ?? null;
+        const isOriginalSelection =
+          !!sel && !!sel.text && sel.text.trim().toLowerCase() === trimmed.toLowerCase();
+        let context = null;
+        if (book && isOriginalSelection && sel?.range) {
+          const sentence = extractSentenceFromRange(sel.range, trimmed);
+          if (sentence) {
+            context = {
+              bookHash: book.hash,
+              bookTitle: book.title || '',
+              cfi: sel.cfi || '',
+              sentence,
+            };
+          }
+        }
+        // EPUB metadata language may be an array; the dictionary popup mounts
+        // single out its first entry — do the same for the stored language.
+        const langRaw = bookData.bookDoc?.metadata.language;
+        const lang = (Array.isArray(langRaw) ? langRaw[0] : langRaw) ?? null;
+        const vocab = await VocabularyDb.open(appService);
+        await vocab.saveWord({ word: trimmed, lang, definitions, context });
+        void useVocabularyStore.getState().refreshIfLoaded();
+        if (!auto) {
+          eventDispatcher.dispatch('toast', {
+            message: _('Saved to Vocabulary'),
+            type: 'success',
+            timeout: 2000,
+          });
+        }
+        return true;
+      } catch (err) {
+        console.warn('Failed to save vocabulary word:', err);
+        if (!auto) {
+          eventDispatcher.dispatch('toast', {
+            message: _('Failed to save word'),
+            type: 'error',
+            timeout: 2000,
+          });
+        }
+        return false;
+      }
+    },
+    [bookKey, bookData.bookDoc, appService, _],
+  );
+
   const handleTranslation = () => {
     if (!selection || !selection.text) return;
     setShowAnnotPopup(false);
@@ -2156,6 +2229,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
                 lang={bookData.bookDoc?.metadata.language as string}
                 onDismiss={handleDismissPopupShowToolbar}
                 onManage={onManage}
+                onVocabularyCapture={handleVocabularyCapture}
               />
             );
           }
@@ -2170,6 +2244,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
               popupHeight={dictPopupHeight}
               onDismiss={handleDismissPopupShowToolbar}
               onManage={onManage}
+              onVocabularyCapture={handleVocabularyCapture}
             />
           );
         })()}

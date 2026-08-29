@@ -289,6 +289,49 @@ const migrations: Record<SchemaType, MigrationEntry[]> = {
       `,
     },
   ],
+  // Vocabulary book: one row per case-insensitive word (`word_key`), with the
+  // latest definition snapshot from the dictionary popup and every captured
+  // reading context. `cfi` is '' when the selection had no locator so the
+  // UNIQUE(word_id, book_hash, cfi) dedup still applies (SQLite treats NULLs
+  // as distinct in unique constraints).
+  vocabulary: [
+    {
+      name: '2026082901_vocabulary_init',
+      sql: `
+        CREATE TABLE IF NOT EXISTS vocabulary (
+          id TEXT PRIMARY KEY,
+          word TEXT NOT NULL,
+          word_key TEXT NOT NULL,
+          lang TEXT,
+          definitions TEXT NOT NULL DEFAULT '[]',
+          primary_index INTEGER NOT NULL DEFAULT 0,
+          last_book_title TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE (word_key)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_vocabulary_updated ON vocabulary(updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS vocabulary_contexts (
+          id TEXT PRIMARY KEY,
+          word_id TEXT NOT NULL,
+          book_hash TEXT NOT NULL,
+          book_title TEXT NOT NULL,
+          cfi TEXT NOT NULL DEFAULT '',
+          sentence TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          UNIQUE (word_id, book_hash, cfi)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_vocabulary_contexts_word
+        ON vocabulary_contexts (word_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_vocabulary_contexts_book
+        ON vocabulary_contexts (book_hash);
+      `,
+    },
+  ],
 };
 
 export function getMigrations(schema: SchemaType): MigrationEntry[] {

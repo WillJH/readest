@@ -6,7 +6,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { saveViewSettings } from '@/helpers/settings';
+import { saveSysSettings, saveViewSettings } from '@/helpers/settings';
 import {
   getTranslatorDisplayLabel,
   getTranslators,
@@ -327,6 +327,15 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
           title={_('Manage Dictionaries')}
           onClick={() => setShowCustomDictionaries(true)}
           className='h-14'
+        />
+        <SettingsSwitchRow
+          label={_('Auto Save Lookups to Vocabulary')}
+          description={_('Silently save each word you look up, with its context sentence.')}
+          checked={settings.autoAddVocabulary ?? true}
+          onChange={() =>
+            saveSysSettings(envConfig, 'autoAddVocabulary', !(settings.autoAddVocabulary ?? true))
+          }
+          data-setting-id='settings.language.autoAddVocabulary'
         />
       </BoxedList>
 

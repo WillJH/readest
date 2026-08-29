@@ -8,6 +8,8 @@ import {
   useDictionaryResults,
   DictionaryResultsHeader,
   DictionaryResultsBody,
+  vocabularyHeaderProps,
+  UseDictionaryResultsArgs,
 } from './DictionaryResultsView';
 
 interface DictionaryPopupProps {
@@ -24,6 +26,8 @@ interface DictionaryPopupProps {
    * deep-linking to the dictionaries sub-page.
    */
   onManage?: () => void;
+  /** Persist a word to the vocabulary book (manual + auto capture). */
+  onVocabularyCapture?: UseDictionaryResultsArgs['onVocabularyCapture'];
 }
 
 const DictionaryPopup: React.FC<DictionaryPopupProps> = ({
@@ -35,8 +39,9 @@ const DictionaryPopup: React.FC<DictionaryPopupProps> = ({
   popupHeight,
   onDismiss,
   onManage,
+  onVocabularyCapture,
 }) => {
-  const state = useDictionaryResults({ word, lang });
+  const state = useDictionaryResults({ word, lang, onVocabularyCapture });
   return (
     <Popup
       width={popupWidth}
@@ -57,6 +62,7 @@ const DictionaryPopup: React.FC<DictionaryPopupProps> = ({
           onManage={onManage}
           onSpeak={state.speakWord}
           speaking={state.isSpeaking}
+          {...vocabularyHeaderProps(state, onVocabularyCapture)}
         />
         <div className='min-h-0 flex-1'>
           <DictionaryResultsBody {...state} />

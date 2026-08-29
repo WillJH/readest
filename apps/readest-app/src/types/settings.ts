@@ -422,6 +422,12 @@ export interface SystemSettings {
   savedBookCoverForLockScreen: string;
   savedBookCoverForLockScreenPath: string;
   telemetryEnabled: boolean;
+  /**
+   * Silently save every dictionary lookup's initial word to the vocabulary
+   * book (word + definition snapshot + context sentence). In-popup follow-up
+   * lookups are never auto-saved; the header button always saves manually.
+   */
+  autoAddVocabulary: boolean;
   discordRichPresenceEnabled: boolean;
   libraryViewMode: LibraryViewModeType;
   librarySortBy: LibrarySortByType;
