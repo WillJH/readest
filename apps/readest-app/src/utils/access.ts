@@ -64,8 +64,12 @@ export const isCloudSyncInPlan = (plan: UserPlan): boolean =>
  * provider is paused (never a silent fallback to Readest Cloud uploads, #4959).
  * Every gate goes through {@link isCloudSyncAllowed}, so this flag is the
  * whole toggle.
+ *
+ * Fork: OFF. The library lives on the user's own Google Drive / OneDrive
+ * (quota there, not Readest Cloud's 500 MB), so the paywall has nothing to
+ * gate. Third-party sync now runs for every plan, including free.
  */
-export const CLOUD_SYNC_REQUIRES_PREMIUM = true;
+export const CLOUD_SYNC_REQUIRES_PREMIUM = false;
 
 /**
  * Whether third-party cloud sync is available for a plan. Falls back to the

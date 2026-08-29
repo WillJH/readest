@@ -29,9 +29,11 @@ describe('isCloudSyncInPlan', () => {
 });
 
 describe('isCloudSyncAllowed (premium paywall)', () => {
-  test('third-party cloud sync requires a paid plan', () => {
-    expect(CLOUD_SYNC_REQUIRES_PREMIUM).toBe(true);
-    expect(isCloudSyncAllowed('free')).toBe(false);
+  test('fork: third-party cloud sync is ungated for every plan', () => {
+    // The fork stores the library on the user's own Drive/OneDrive, so the
+    // paywall switch is off and every plan — including free — may sync there.
+    expect(CLOUD_SYNC_REQUIRES_PREMIUM).toBe(false);
+    expect(isCloudSyncAllowed('free')).toBe(true);
     expect(isCloudSyncAllowed('plus')).toBe(true);
     expect(isCloudSyncAllowed('pro')).toBe(true);
     expect(isCloudSyncAllowed('purchase')).toBe(true);
