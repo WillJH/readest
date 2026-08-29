@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from '@/hooks/useSafeAreaInsets';
 import { useSettingsSync } from '@/hooks/useSettingsSync';
 import { useDefaultIconSize } from '@/hooks/useResponsiveSize';
 import { useBackgroundTexture } from '@/hooks/useBackgroundTexture';
+import { useBackgroundTextureRotation } from '@/hooks/useBackgroundTextureRotation';
 import { useEinkMode } from '@/hooks/useEinkMode';
 import { getLocale } from '@/utils/misc';
 import { getDirFromUILanguage } from '@/utils/rtl';
@@ -115,6 +116,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   const [showTelemetryConsent, setShowTelemetryConsent] = useState(false);
   useSafeAreaInsets(); // Initialize safe area insets
   useSettingsSync(); // Adopt global settings broadcast by other windows (#4580)
+  useBackgroundTextureRotation(); // Auto-rotate the mounted background per settings
 
   useEffect(() => {
     const handlerLanguageChanged = (lng: string) => {

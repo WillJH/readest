@@ -524,6 +524,19 @@ export interface SystemSettings {
   /** Saved AI provider connections; characters bind one by id. */
   aiConnections?: AIConnection[];
   /**
+   * Auto-rotate the background texture among the user's imported images.
+   * Rotates only where a texture is actually applied (a page set to 'none'
+   * stays clean); the per-book `backgroundTextureId` / library selection is
+   * untouched — rotation only changes what is currently mounted.
+   */
+  backgroundTextureRotation?: {
+    enabled: boolean;
+    /** Minutes between rotations; 1440 = daily. */
+    intervalMin: number;
+    /** Random pick instead of sequential order. */
+    shuffle: boolean;
+  };
+  /**
    * Per-device id used as the deviceId portion of every HLC this device
    * mints. Lazy-generated on first sync init via uuidv4 (mirrors
    * kosync.deviceId). Independent from kosync — the two services have

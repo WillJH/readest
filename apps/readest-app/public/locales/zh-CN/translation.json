@@ -2283,5 +2283,15 @@
   "Mode": "模式",
   "Response Mode — speaks when asked": "回应模式——有问才答",
   "Companion Mode — speaks up on its own": "陪伴模式——自主发言",
-  "Companion mode arrives in a later update; stored per character.": "陪伴模式将在后续版本提供;现已按角色保存设置。"
+  "Companion mode arrives in a later update; stored per character.": "陪伴模式将在后续版本提供;现已按角色保存设置。",
+  "Auto Rotate": "自动轮换",
+  "Rotate background automatically": "自动轮换背景图",
+  "Cycles through your imported images wherever a background is set.": "在设置了背景图的页面间循环轮换你导入的图片。",
+  "Interval": "间隔",
+  "Every 10 minutes": "每 10 分钟",
+  "Every 30 minutes": "每 30 分钟",
+  "Every hour": "每小时",
+  "Every 6 hours": "每 6 小时",
+  "Every day": "每天",
+  "Shuffle": "随机顺序"
 }

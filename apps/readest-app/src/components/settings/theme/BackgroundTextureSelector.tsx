@@ -3,9 +3,21 @@ import React from 'react';
 import { MdClose, MdPlayCircleOutline } from 'react-icons/md';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
-import { BoxedList, SectionTitle, SettingsRow, SettingsSelect } from '../primitives';
+import { useEnv } from '@/context/EnvContext';
+import { useSettingsStore } from '@/store/settingsStore';
+import { saveSysSettings } from '@/helpers/settings';
+import {
+  BoxedList,
+  SectionTitle,
+  SettingsRow,
+  SettingsSelect,
+  SettingsSwitchRow,
+} from '../primitives';
 import { PiPlus } from 'react-icons/pi';
 import type { BackgroundTextureScope } from '@/helpers/settings';
+import type { SystemSettings } from '@/types/settings';
+
+type BackgroundTextureRotation = NonNullable<SystemSettings['backgroundTextureRotation']>;
 
 interface Texture {
   id: string;
@@ -47,6 +59,20 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
 }) => {
   const _ = useTranslation();
   const iconSize24 = useResponsiveSize(24);
+  const { envConfig } = useEnv();
+  const rotation = useSettingsStore((s) => s.settings?.backgroundTextureRotation);
+  const rotationEnabled = rotation?.enabled ?? false;
+  const intervalMin = rotation?.intervalMin ?? 30;
+  const shuffle = rotation?.shuffle ?? false;
+
+  const saveRotation = (patch: Partial<NonNullable<BackgroundTextureRotation>>) => {
+    saveSysSettings(envConfig, 'backgroundTextureRotation', {
+      enabled: rotationEnabled,
+      intervalMin,
+      shuffle,
+      ...patch,
+    });
+  };
 
   const allTextures = [...predefinedTextures, ...customTextures];
 
@@ -188,6 +214,39 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
           </SettingsRow>
         </BoxedList>
       )}
+
+      {/* Auto rotation over the imported image pool */}
+      <BoxedList title={_('Auto Rotate')}>
+        <SettingsSwitchRow
+          label={_('Rotate background automatically')}
+          description={_('Cycles through your imported images wherever a background is set.')}
+          checked={rotationEnabled}
+          onChange={() => saveRotation({ enabled: !rotationEnabled })}
+        />
+        {rotationEnabled && (
+          <>
+            <SettingsRow label={_('Interval')}>
+              <SettingsSelect
+                value={String(intervalMin)}
+                onChange={(e) => saveRotation({ intervalMin: Number(e.target.value) })}
+                ariaLabel={_('Interval')}
+                options={[
+                  { value: '10', label: _('Every 10 minutes') },
+                  { value: '30', label: _('Every 30 minutes') },
+                  { value: '60', label: _('Every hour') },
+                  { value: '360', label: _('Every 6 hours') },
+                  { value: '1440', label: _('Every day') },
+                ]}
+              />
+            </SettingsRow>
+            <SettingsSwitchRow
+              label={_('Shuffle')}
+              checked={shuffle}
+              onChange={() => saveRotation({ shuffle: !shuffle })}
+            />
+          </>
+        )}
+      </BoxedList>
     </div>
   );
 };

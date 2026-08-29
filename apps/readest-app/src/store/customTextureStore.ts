@@ -26,6 +26,8 @@ const publishTextureDelete = (contentId: string): void => {
 interface TextureStoreState {
   textures: CustomTexture[];
   loading: boolean;
+  /** The texture currently mounted on the shared #background-texture element (null when unmounted). */
+  mountedTextureId: string | null;
 
   setTextures: (textures: CustomTexture[]) => void;
   addTexture: (
@@ -62,6 +64,8 @@ interface TextureStoreState {
   activateTextureByContentId: (envConfig: EnvConfigType, contentId: string) => Promise<void>;
 
   applyTexture: (envConfig: EnvConfigType, textureId: string) => Promise<void>;
+  /** Advance the mounted background to the next imported texture (auto-rotate). */
+  rotateBackgroundTexture: (envConfig: EnvConfigType) => Promise<void>;
   loadTexture: (envConfig: EnvConfigType, textureId: string) => Promise<CustomTexture>;
   loadTextures: (envConfig: EnvConfigType, textureIds: string[]) => Promise<CustomTexture[]>;
   loadAllTextures: (envConfig: EnvConfigType) => Promise<CustomTexture[]>;
@@ -84,6 +88,7 @@ function toSettingsTexture(texture: CustomTexture): CustomTexture {
 export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
   textures: [],
   loading: false,
+  mountedTextureId: null,
 
   setTextures: (textures) => set({ textures }),
 
@@ -387,6 +392,7 @@ export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
     let selectedTexture = allTextures.find((t) => t.id === textureId);
 
     if (!selectedTexture || selectedTexture.id === 'none') {
+      set({ mountedTextureId: null });
       unmountBackgroundTexture(document);
       return;
     }
@@ -395,7 +401,37 @@ export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
       selectedTexture = await get().loadTexture(envConfig, textureId);
     }
 
+    set({ mountedTextureId: selectedTexture?.id ?? null });
     mountBackgroundTexture(document, selectedTexture);
+  },
+
+  /**
+   * Auto-rotate the mounted background to the next imported texture,
+   * following settings.backgroundTextureRotation. No-ops when rotation is
+   * disabled, nothing is mounted (a 'none' page stays clean), or the pool
+   * is empty. Never touches the stored per-book/library texture selection —
+   * only what is currently mounted.
+   */
+  rotateBackgroundTexture: async (envConfig) => {
+    const { settings } = useSettingsStore.getState();
+    const rotation = settings?.backgroundTextureRotation;
+    if (!rotation?.enabled) return;
+    const mounted = get().mountedTextureId;
+    if (!mounted) return;
+
+    const pool = get().getAvailableTextures();
+    if (pool.length === 0) return;
+
+    let next;
+    if (rotation.shuffle) {
+      const others = pool.filter((t) => t.id !== mounted);
+      next = others.length > 0 ? others[Math.floor(Math.random() * others.length)]! : pool[0]!;
+    } else {
+      const at = pool.findIndex((t) => t.id === mounted);
+      // -1 (a predefined texture was mounted) starts from the pool's head.
+      next = pool[(at + 1 + pool.length) % pool.length]!;
+    }
+    await get().applyTexture(envConfig, next.id);
   },
 
   loadCustomTextures: async (envConfig) => {
