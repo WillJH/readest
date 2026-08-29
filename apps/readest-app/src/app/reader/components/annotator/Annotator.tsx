@@ -1613,6 +1613,25 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     setShowDeepLPopup(true);
   };
 
+  // Ask AI: quote the selection into the active character's chat. The
+  // notebook AI tab listens for the event and appends the message through
+  // its runtime; we only route and open the surface.
+  const handleAskAi = () => {
+    if (!selection || !selection.text) return;
+    if (!settings?.aiSettings?.enabled) {
+      eventDispatcher.dispatch('toast', {
+        message: _('Enable AI in Settings'),
+        type: 'info',
+        timeout: 2000,
+      });
+      return;
+    }
+    eventDispatcher.dispatch('ask-ai', { bookKey, text: selection.text });
+    setNotebookActiveTab('ai');
+    setNotebookVisible(true);
+    handleDismissPopupAndSelection();
+  };
+
   const handleSpeakText = async (oneTime = false) => {
     if (!selection || !selection.text) return;
     // TTS walks the main view's documents; a popup-window range can't seed it
@@ -2156,6 +2175,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
         return { tooltipText: _(label), Icon, onClick: handleDictionary };
       case 'translate':
         return { tooltipText: _(label), Icon, onClick: handleTranslation };
+      case 'askAi':
+        return { tooltipText: _(label), Icon, onClick: handleAskAi };
       case 'tts':
         return {
           tooltipText: _(label),

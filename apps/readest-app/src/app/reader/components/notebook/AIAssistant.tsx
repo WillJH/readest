@@ -29,6 +29,7 @@ import {
 import type { EmbeddingProgress, AISettings, AIMessage } from '@/services/ai/types';
 import type { RetrievedChunk } from '@/services/reedy/retrieval/BookRetriever';
 import { useEnv } from '@/context/EnvContext';
+import { eventDispatcher } from '@/utils/event';
 import { isTauriAppPlatform } from '@/services/environment';
 import type { AppService } from '@/types/system';
 import { ReedyAssistant } from '@/services/reedy/ui/ReedyAssistant';
@@ -36,6 +37,8 @@ import type { ReadingContextSnapshot } from '@/services/reedy/tools/builtins/typ
 
 import { Button } from '@/components/ui/button';
 import { Loader2Icon, BookOpenIcon } from 'lucide-react';
+import clsx from 'clsx';
+import CharacterAvatar from '@/components/CharacterAvatar';
 import { Thread } from '@/components/assistant/Thread';
 
 // Helper function to convert AIMessage array to ExportedMessageRepository format
@@ -235,40 +238,83 @@ const AIAssistantChat = ({
     };
   }, [activeConversationId, storedMessages, addMessage]);
 
+  const selectCharacter = useCallback(
+    (next: string | null) => {
+      setAvatarLabel(null);
+      if (activeConversationId) {
+        void setConversationCharacter(activeConversationId, next ?? undefined);
+      } else {
+        setDraftCharacter(next);
+      }
+    },
+    [activeConversationId, setConversationCharacter, setDraftCharacter],
+  );
+
+  const defaultImageIdFor = (c: (typeof characters)[number]) =>
+    (c.images.find((i) => i.id === c.defaultImageId) ?? c.images[0])?.id ?? '';
+  const connectionLabel = connection
+    ? `${connection.name}${connection.model ? ` · ${connection.model}` : ''}`
+    : _('Global Settings');
+
   return (
     <div className='flex h-full min-h-0 flex-col'>
-      {characters.length > 0 && (
-        <div className='flex items-center gap-2 px-3 pt-1 pb-2'>
-          <select
-            value={characterId ?? ''}
-            onChange={(e) => {
-              const next = e.target.value || null;
-              setAvatarLabel(null);
-              if (activeConversationId) {
-                void setConversationCharacter(activeConversationId, next ?? undefined);
-              } else {
-                setDraftCharacter(next);
-              }
-            }}
-            aria-label={_('Chat character')}
-            className='select select-xs h-7 max-w-[60%] bg-base-200'
-          >
-            <option value=''>{_('Default Companion')}</option>
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {avatarUrl && character && (
-            <img
-              src={avatarUrl}
-              alt={character.name}
-              className='bg-base-300/60 size-7 shrink-0 rounded-full object-cover'
-            />
+      {/* Character rail — the assistant always has a face, one tap to switch. */}
+      <div className='border-base-300/40 flex items-center gap-1.5 border-b px-3 pt-2 pb-2'>
+        <button
+          type='button'
+          onClick={() => selectCharacter(null)}
+          title={_('Default Companion')}
+          aria-label={_('Default Companion')}
+          aria-pressed={characterId == null}
+          className={clsx(
+            'flex size-9 shrink-0 items-center justify-center rounded-full transition-colors',
+            characterId == null
+              ? 'bg-primary/15 text-primary'
+              : 'text-base-content/50 hover:bg-base-200/60',
           )}
+        >
+          <BookOpenIcon className='size-4' />
+        </button>
+        <div className='flex min-w-0 flex-1 items-center gap-2 overflow-x-auto'>
+          {characters.map((c) => {
+            const selected = c.id === characterId;
+            return (
+              <button
+                key={c.id}
+                type='button'
+                onClick={() => selectCharacter(c.id)}
+                title={c.name}
+                aria-label={c.name}
+                aria-pressed={selected}
+                className={clsx(
+                  'shrink-0 rounded-full transition-all',
+                  selected
+                    ? 'ring-primary ring-2 ring-offset-base-100 ring-offset-2'
+                    : 'opacity-70 hover:opacity-100',
+                )}
+              >
+                <CharacterAvatar name={c.name} url={imageUrls[defaultImageIdFor(c)]} size={32} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Identity card — who is on the other side, through which model. */}
+      {character && (
+        <div className='flex items-center gap-2.5 px-3 pt-2 pb-1'>
+          <CharacterAvatar
+            name={character.name}
+            url={imageUrls[defaultImageIdFor(character)]}
+            size={36}
+          />
+          <div className='min-w-0 flex-1'>
+            <div className='text-base-content truncate text-sm font-semibold'>{character.name}</div>
+            <div className='text-base-content/55 truncate text-xs'>{connectionLabel}</div>
+          </div>
         </div>
       )}
+
       <AIAssistantWithRuntime
         adapter={adapter}
         historyAdapter={historyAdapter}
@@ -279,6 +325,8 @@ const AIAssistantChat = ({
         currentTurnId={currentTurnId}
         onSourceClick={onSourceClick}
         avatarUrl={avatarUrl}
+        bookHash={bookHash}
+        bookTitle={bookTitle}
       />
     </div>
   );
@@ -294,6 +342,8 @@ const AIAssistantWithRuntime = ({
   currentTurnId,
   onSourceClick,
   avatarUrl,
+  bookHash,
+  bookTitle,
 }: {
   adapter: NonNullable<ReturnType<typeof createTauriAdapter>>;
   historyAdapter?: ThreadHistoryAdapter;
@@ -304,6 +354,8 @@ const AIAssistantWithRuntime = ({
   currentTurnId: string | null;
   onSourceClick?: (source: SourceItem) => void;
   avatarUrl?: string;
+  bookHash: string;
+  bookTitle: string;
 }) => {
   const runtime = useLocalRuntime(adapter, {
     adapters: historyAdapter ? { history: historyAdapter } : undefined,
@@ -321,6 +373,8 @@ const AIAssistantWithRuntime = ({
         currentTurnId={currentTurnId}
         onSourceClick={onSourceClick}
         avatarUrl={avatarUrl}
+        bookHash={bookHash}
+        bookTitle={bookTitle}
       />
     </AssistantRuntimeProvider>
   );
@@ -334,6 +388,8 @@ const ThreadWrapper = ({
   currentTurnId,
   onSourceClick,
   avatarUrl,
+  bookHash,
+  bookTitle,
 }: {
   onResetIndex: () => void;
   isLoadingHistory: boolean;
@@ -342,12 +398,39 @@ const ThreadWrapper = ({
   currentTurnId: string | null;
   onSourceClick?: (source: SourceItem) => void;
   avatarUrl?: string;
+  bookHash: string;
+  bookTitle: string;
 }) => {
   const [sources, setSources] = useState<RetrievedChunk[]>(
     currentTurnId ? sourceStore.get(currentTurnId) : [],
   );
   const assistantRuntime = useAssistantRuntime();
   const { setActiveConversation } = useAIChatStore();
+
+  // Ask AI (selection toolbar): quote the selected text into the chat as a
+  // user message and let the active character's persona respond. When no
+  // conversation is active, create one first so the exchange persists —
+  // the short delay lets the runtime pick up the new history adapter.
+  useEffect(() => {
+    const handleAskAi = (event: CustomEvent) => {
+      const { text } = event.detail as { text?: string };
+      const quote = (text ?? '').trim();
+      if (!quote) return;
+      const append = () => assistantRuntime.thread.append(`> ${quote}`);
+      const { activeConversationId, createConversation } = useAIChatStore.getState();
+      if (activeConversationId) {
+        append();
+      } else {
+        void createConversation(bookHash, `AI · ${bookTitle}`).then(() => {
+          setTimeout(append, 120);
+        });
+      }
+    };
+    eventDispatcher.on('ask-ai', handleAskAi);
+    return () => {
+      eventDispatcher.off('ask-ai', handleAskAi);
+    };
+  }, [assistantRuntime, bookHash, bookTitle]);
 
   // Subscribe to the active turn's slot in the source store. Replaces the
   // pre-Reedy 500ms poll over a module-global lastSources (per plan §M1.7).
