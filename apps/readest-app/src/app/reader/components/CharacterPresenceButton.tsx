@@ -23,9 +23,13 @@ const CharacterPresenceButton: React.FC = () => {
   const imageUrls = useCharacterStore((s) => s.imageUrls);
 
   const character = useMemo(() => {
+    // Most recent conversation binding → draft pick → newest character:
+    // a user with a cast but no chat yet still gets their presence button.
     const id =
       [...conversations].filter((c) => c.characterId).sort((a, b) => b.updatedAt - a.updatedAt)[0]
-        ?.characterId ?? draftCharacterId;
+        ?.characterId ??
+      draftCharacterId ??
+      characters.filter((c) => !c.deletedAt)[characters.length - 1]?.id;
     return characters.find((c) => c.id === id && !c.deletedAt);
   }, [conversations, draftCharacterId, characters]);
 

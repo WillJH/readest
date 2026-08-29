@@ -75,6 +75,12 @@ function convertToExportedMessages(
   });
 }
 
+// Books whose readers chose to chat without indexing this session.
+const skippedIndexBooks = new Set<string>();
+// An Ask AI payload that arrived before the chat thread was mounted (e.g.
+// while the index-choice screen was up); consumed by ThreadWrapper on mount.
+let pendingAskAi: { bookHash: string; text: string } | null = null;
+
 interface AIAssistantProps {
   bookKey: string;
 }
@@ -411,12 +417,12 @@ const ThreadWrapper = ({
   // user message and let the active character's persona respond. When no
   // conversation is active, create one first so the exchange persists —
   // the short delay lets the runtime pick up the new history adapter.
-  useEffect(() => {
-    const handleAskAi = (event: CustomEvent) => {
-      const { text } = event.detail as { text?: string };
-      const quote = (text ?? '').trim();
-      if (!quote) return;
-      const append = () => assistantRuntime.thread.append(`> ${quote}`);
+  const appendQuote = useCallback(
+    (quote: string) => {
+      const append = () => {
+        pendingAskAi = null;
+        assistantRuntime.thread.append(`> ${quote}`);
+      };
       const { activeConversationId, createConversation } = useAIChatStore.getState();
       if (activeConversationId) {
         append();
@@ -425,12 +431,32 @@ const ThreadWrapper = ({
           setTimeout(append, 120);
         });
       }
+    },
+    [assistantRuntime, bookHash, bookTitle],
+  );
+
+  useEffect(() => {
+    const handleAskAi = (event: CustomEvent) => {
+      const { text } = event.detail as { text?: string };
+      const quote = (text ?? '').trim();
+      if (quote) appendQuote(quote);
     };
     eventDispatcher.on('ask-ai', handleAskAi);
     return () => {
       eventDispatcher.off('ask-ai', handleAskAi);
     };
-  }, [assistantRuntime, bookHash, bookTitle]);
+  }, [appendQuote]);
+
+  // A tap that arrived while this thread wasn't mounted (index-choice
+  // screen) left its payload stashed — consume it now.
+  useEffect(() => {
+    if (pendingAskAi) {
+      const { text } = pendingAskAi;
+      pendingAskAi = null;
+      appendQuote(text);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appendQuote]);
 
   // Subscribe to the active turn's slot in the source store. Replaces the
   // pre-Reedy 500ms poll over a module-global lastSources (per plan §M1.7).
@@ -505,6 +531,30 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const [indexProgress, setIndexProgress] = useState<EmbeddingProgress | null>(null);
   const [indexed, setIndexed] = useState(false);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+  // Chat-without-indexing is the user's call, not a hard gate. Remembered per
+  // book for the session so reopening the AI tab doesn't re-nag.
+  const [indexSkipped, setIndexSkipped] = useState(() => skippedIndexBooks.has(bookKey));
+
+  const skipIndexing = useCallback(() => {
+    skippedIndexBooks.add(bookKey);
+    setIndexSkipped(true);
+  }, [bookKey]);
+
+  // An Ask AI tap from the reading surface must reach the chat even when the
+  // index-choice screen is up: let it through and stash the payload for the
+  // thread that mounts a beat later (it consumes pendingAskAi on mount).
+  useEffect(() => {
+    const handleAskAi = (event: CustomEvent) => {
+      const { text } = event.detail as { text?: string };
+      if (!text?.trim()) return;
+      pendingAskAi = { bookHash: bookKey.split('-')[0] || '', text: text.trim() };
+      skipIndexing();
+    };
+    eventDispatcher.on('ask-ai', handleAskAi);
+    return () => {
+      eventDispatcher.off('ask-ai', handleAskAi);
+    };
+  }, [bookKey, skipIndexing]);
 
   const bookHash = bookKey.split('-')[0] || '';
   const bookTitle = bookData?.book?.title || 'Unknown';
@@ -590,7 +640,7 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
       ? Math.round((indexProgress.current / indexProgress.total) * 100)
       : 0;
 
-  if (!indexed && !isIndexing) {
+  if (!indexed && !isIndexing && !indexSkipped) {
     return (
       <div className='flex h-full flex-col items-center justify-center gap-3 p-4 text-center'>
         <div className='bg-primary/10 rounded-full p-3'>
@@ -606,6 +656,13 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
           <BookOpenIcon className='mr-1.5 size-3.5' />
           {_('Start Indexing')}
         </Button>
+        <button
+          type='button'
+          onClick={skipIndexing}
+          className='text-base-content/60 hover:text-base-content text-xs underline underline-offset-2'
+        >
+          {_('Chat without indexing')}
+        </button>
       </div>
     );
   }
@@ -635,19 +692,35 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   if (!backend) return null;
 
   return (
-    <AIAssistantChat
-      aiSettings={aiSettings}
-      bookHash={bookHash}
-      bookTitle={bookTitle}
-      authorName={authorName}
-      currentPage={currentPage}
-      backend={backend}
-      sourceStore={sourceStore}
-      currentTurnId={currentTurnId}
-      setCurrentTurnId={setCurrentTurnId}
-      onSourceClick={handleSourceClick}
-      onResetIndex={handleResetIndex}
-    />
+    <div className='flex h-full min-h-0 flex-col'>
+      {!indexed && (
+        <div className='border-base-300/40 flex items-center justify-between gap-2 border-b px-3 py-1.5'>
+          <span className='text-base-content/60 text-xs'>
+            {_('Not indexed — answers lack full-book context.')}
+          </span>
+          <button
+            type='button'
+            onClick={() => void handleIndex()}
+            className='btn btn-ghost btn-xs shrink-0'
+          >
+            {_('Start Indexing')}
+          </button>
+        </div>
+      )}
+      <AIAssistantChat
+        aiSettings={aiSettings}
+        bookHash={bookHash}
+        bookTitle={bookTitle}
+        authorName={authorName}
+        currentPage={currentPage}
+        backend={backend}
+        sourceStore={sourceStore}
+        currentTurnId={currentTurnId}
+        setCurrentTurnId={setCurrentTurnId}
+        onSourceClick={handleSourceClick}
+        onResetIndex={handleResetIndex}
+      />
+    </div>
   );
 };
 

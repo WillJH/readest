@@ -2303,5 +2303,7 @@
   "The template pre-fills the persona prompt — edit anything before saving. Templates only write the prompt; bind a connection and avatars after creating.": "模板会预填人设提示词,保存前可随意修改。模板只负责提示词;连接和头像请在创建后绑定。",
   "Ask AI": "问 AI",
   "Send the selected text to the AI assistant": "把选中的文本发给 AI 助手",
-  "{{name}} — open chat": "{{name}} —— 打开对话"
+  "{{name}} — open chat": "{{name}} —— 打开对话",
+  "Chat without indexing": "不索引,直接对话",
+  "Not indexed — answers lack full-book context.": "未索引——回答缺少全书上下文。"
 }
