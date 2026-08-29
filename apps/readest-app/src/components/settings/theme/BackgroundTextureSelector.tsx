@@ -64,6 +64,7 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
   const rotationEnabled = rotation?.enabled ?? false;
   const intervalMin = rotation?.intervalMin ?? 30;
   const shuffle = rotation?.shuffle ?? false;
+  const poolIds = rotation?.textureIds;
 
   const saveRotation = (patch: Partial<NonNullable<BackgroundTextureRotation>>) => {
     saveSysSettings(envConfig, 'backgroundTextureRotation', {
@@ -72,6 +73,17 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
       shuffle,
       ...patch,
     });
+  };
+
+  // Toggle one image's pool membership. Absent textureIds means "all images"
+  // (newly imported ones auto-join); once the user picks a subset it stays
+  // explicit, collapsing back to "all" when everything is re-selected.
+  const togglePool = (id: string) => {
+    const effective = customTextures
+      .filter((t) => !poolIds || poolIds.includes(t.id))
+      .map((t) => t.id);
+    const next = effective.includes(id) ? effective.filter((x) => x !== id) : [...effective, id];
+    saveRotation({ textureIds: next.length === customTextures.length ? undefined : next });
   };
 
   const allTextures = [...predefinedTextures, ...customTextures];
@@ -244,6 +256,52 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
               checked={shuffle}
               onChange={() => saveRotation({ shuffle: !shuffle })}
             />
+            {customTextures.length > 0 && (
+              <div className='flex flex-col gap-2 px-4 py-3'>
+                <span className='text-base-content/70 text-sm'>
+                  {poolIds
+                    ? _('Rotation pool: {{count}} selected', {
+                        count: poolIds.filter((id) => customTextures.some((t) => t.id === id))
+                          .length,
+                      })
+                    : _('Rotation pool: all images')}
+                </span>
+                <div className='flex flex-wrap gap-2'>
+                  {customTextures.map((texture) => {
+                    const selected = !poolIds || poolIds.includes(texture.id);
+                    return (
+                      <button
+                        key={texture.id}
+                        type='button'
+                        onClick={() => togglePool(texture.id)}
+                        aria-pressed={selected}
+                        title={selected ? _('Exclude from rotation') : _('Include in rotation')}
+                        className={clsx(
+                          'relative size-12 overflow-hidden rounded-lg border-2 transition-colors',
+                          selected ? 'border-primary' : 'border-base-300 opacity-50',
+                        )}
+                        style={{
+                          backgroundImage: texture.loaded
+                            ? `url("${texture.blobUrl || texture.url}")`
+                            : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'top',
+                        }}
+                      >
+                        <span
+                          className={clsx(
+                            'absolute right-0.5 bottom-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-white',
+                            selected ? 'bg-primary' : 'bg-base-content/40',
+                          )}
+                        >
+                          {selected ? '✓' : ''}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </BoxedList>

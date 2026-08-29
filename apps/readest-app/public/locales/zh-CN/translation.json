@@ -2293,5 +2293,9 @@
   "Every hour": "每小时",
   "Every 6 hours": "每 6 小时",
   "Every day": "每天",
-  "Shuffle": "随机顺序"
+  "Shuffle": "随机顺序",
+  "Rotation pool: all images": "轮换范围:全部图片",
+  "Rotation pool: {{count}} selected": "轮换范围:已选 {{count}} 张",
+  "Exclude from rotation": "移出轮换",
+  "Include in rotation": "加入轮换"
 }

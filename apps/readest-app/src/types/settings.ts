@@ -535,6 +535,11 @@ export interface SystemSettings {
     intervalMin: number;
     /** Random pick instead of sequential order. */
     shuffle: boolean;
+    /**
+     * Texture ids allowed in the rotation. Absent = every imported image
+     * participates; a stale id (image deleted) is simply skipped.
+     */
+    textureIds?: string[];
   };
   /**
    * Per-device id used as the deviceId portion of every HLC this device

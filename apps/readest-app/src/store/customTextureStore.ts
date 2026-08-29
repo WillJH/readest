@@ -419,7 +419,11 @@ export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
     const mounted = get().mountedTextureId;
     if (!mounted) return;
 
-    const pool = get().getAvailableTextures();
+    const pool = rotation.textureIds
+      ? get()
+          .getAvailableTextures()
+          .filter((t) => rotation.textureIds!.includes(t.id))
+      : get().getAvailableTextures();
     if (pool.length === 0) return;
 
     let next;
