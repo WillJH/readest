@@ -14,6 +14,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useEnv } from '@/context/EnvContext';
+import { eventDispatcher } from '@/utils/event';
 import { getAIProvider } from '@/services/ai/providers';
 import {
   fetchOpenRouterModels,
@@ -21,6 +22,8 @@ import {
 } from '@/services/ai/providers/OpenRouterProvider';
 import { DEFAULT_AI_SETTINGS, GATEWAY_MODELS, MODEL_PRICING } from '@/services/ai/constants';
 import { DEFAULT_SYSTEM_PROMPT_TEMPLATE } from '@/services/ai/prompts';
+import { buildAiBackup, parseAiBackup, applyAiBackup } from '@/services/ai/aiBackup';
+import { useFileSelector } from '@/hooks/useFileSelector';
 import type { AISettings, AIProviderName } from '@/services/ai/types';
 import { exportReedyMetricsBundle } from '@/services/reedy/instrumentation';
 import { isTauriAppPlatform } from '@/services/environment';
@@ -141,6 +144,9 @@ const AIPanel: React.FC = () => {
   const [showCharacters, setShowCharacters] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [showMcpServers, setShowMcpServers] = useState(false);
+  const [includeSecrets, setIncludeSecrets] = useState(true);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const { selectFiles } = useFileSelector(appService, _);
   const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
   const [systemPromptTemplate, setSystemPromptTemplate] = useState(
     aiSettings.systemPromptTemplate ?? DEFAULT_SYSTEM_PROMPT_TEMPLATE,
@@ -449,6 +455,61 @@ const AIPanel: React.FC = () => {
     } catch (error) {
       setConnectionStatus('error');
       setErrorMessage((error as Error).message || _('Connection failed'));
+    }
+  };
+
+  const handleExport = async () => {
+    if (!appService || !settings || !envConfig) return;
+    setBackupBusy(true);
+    try {
+      const data = await buildAiBackup(appService, settings, { includeSecrets });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `readest-ai-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn('[ai-backup] export failed:', err);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!appService || !settings || !envConfig) return;
+    const { files } = await selectFiles({ type: 'generic' });
+    const file = files[0]?.file;
+    if (!file) return;
+    setBackupBusy(true);
+    try {
+      const text = await file.text();
+      const data = parseAiBackup(text);
+      const result = await applyAiBackup(appService, envConfig, settings, data);
+      eventDispatcher.dispatch('toast', {
+        message: _(
+          'Imported {{connections}} connections, {{characters}} characters ({{images}} avatars), {{servers}} MCP servers',
+          {
+            connections: result.connections,
+            characters: result.characters,
+            images: result.images,
+            servers: result.mcpServers,
+          },
+        ),
+        type: 'success',
+        timeout: 4000,
+      });
+    } catch (err) {
+      eventDispatcher.dispatch('toast', {
+        message: `${_('Import failed')}: ${err instanceof Error ? err.message : String(err)}`,
+        type: 'error',
+        timeout: 4000,
+      });
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -842,6 +903,38 @@ const AIPanel: React.FC = () => {
           status={_('Chat personas with an avatar gallery the AI picks from.')}
           onClick={() => setShowCharacters(true)}
         />
+      </BoxedList>
+
+      <BoxedList
+        title={_('Backup & Restore')}
+        className={disabledSection}
+        description={_(
+          'Export connections, characters (with avatars), MCP servers, and prompts to one file; import merges by id.',
+        )}
+      >
+        <SettingsSwitchRow
+          label={_('Include API keys and auth headers')}
+          checked={includeSecrets}
+          onChange={() => setIncludeSecrets(!includeSecrets)}
+        />
+        <div className='flex items-center justify-between gap-3 px-4 py-3'>
+          <button
+            type='button'
+            className='btn btn-outline btn-sm'
+            disabled={!enabled || backupBusy || !appService || !settings}
+            onClick={() => void handleExport()}
+          >
+            {backupBusy ? _('Exporting…') : _('Export')}
+          </button>
+          <button
+            type='button'
+            className='btn btn-outline btn-sm'
+            disabled={!enabled || backupBusy || !appService || !settings}
+            onClick={() => void handleImport()}
+          >
+            {_('Import')}
+          </button>
+        </div>
       </BoxedList>
 
       <BoxedList title={_('Prompts')} className={disabledSection}>

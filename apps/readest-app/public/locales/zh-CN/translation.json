@@ -2336,5 +2336,13 @@
   "No {{bookPassages}} placeholder — retrieved book context is not injected.": "缺少 {{bookPassages}} 占位符——检索到的书籍上下文不会注入。",
   "MCP Tools (optional)": "MCP 工具(可选)",
   "Off by default — check the servers this connection may use. Unchecked means no tools.": "默认关闭——勾选此连接可使用的服务器;不勾选则不使用任何工具。",
-  "Saved words with definition snapshots and reading contexts": "收藏的生词,含释义快照与阅读语境"
+  "Saved words with definition snapshots and reading contexts": "收藏的生词,含释义快照与阅读语境",
+  "Backup & Restore": "备份与恢复",
+  "Export connections, characters (with avatars), MCP servers, and prompts to one file; import merges by id.": "导出连接、角色(含头像)、MCP 服务器与提示词为单个文件;导入按 id 合并。",
+  "Include API keys and auth headers": "包含 API 密钥和鉴权头",
+  "Export": "导出",
+  "Import": "导入",
+  "Exporting…": "导出中…",
+  "Import failed": "导入失败",
+  "Imported {{connections}} connections, {{characters}} characters ({{images}} avatars), {{servers}} MCP servers": "已导入 {{connections}} 条连接、{{characters}} 个角色({{images}} 张头像)、{{servers}} 个 MCP 服务器"
 }
