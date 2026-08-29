@@ -35,7 +35,6 @@ import type { AppService } from '@/types/system';
 import { ReedyAssistant } from '@/services/reedy/ui/ReedyAssistant';
 import type { ReadingContextSnapshot } from '@/services/reedy/tools/builtins/types';
 
-import { Button } from '@/components/ui/button';
 import { Loader2Icon, BookOpenIcon } from 'lucide-react';
 import clsx from 'clsx';
 import CharacterAvatar from '@/components/CharacterAvatar';
@@ -75,10 +74,8 @@ function convertToExportedMessages(
   });
 }
 
-// Books whose readers chose to chat without indexing this session.
-const skippedIndexBooks = new Set<string>();
-// An Ask AI payload that arrived before the chat thread was mounted (e.g.
-// while the index-choice screen was up); consumed by ThreadWrapper on mount.
+// An Ask AI payload that arrived while the chat thread wasn't mounted (e.g.
+// notebook hidden); consumed by ThreadWrapper on mount.
 let pendingAskAi: { bookHash: string; text: string } | null = null;
 
 interface AIAssistantProps {
@@ -531,30 +528,20 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const [indexProgress, setIndexProgress] = useState<EmbeddingProgress | null>(null);
   const [indexed, setIndexed] = useState(false);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
-  // Chat-without-indexing is the user's call, not a hard gate. Remembered per
-  // book for the session so reopening the AI tab doesn't re-nag.
-  const [indexSkipped, setIndexSkipped] = useState(() => skippedIndexBooks.has(bookKey));
 
-  const skipIndexing = useCallback(() => {
-    skippedIndexBooks.add(bookKey);
-    setIndexSkipped(true);
-  }, [bookKey]);
-
-  // An Ask AI tap from the reading surface must reach the chat even when the
-  // index-choice screen is up: let it through and stash the payload for the
-  // thread that mounts a beat later (it consumes pendingAskAi on mount).
+  // An Ask AI tap can arrive while the chat thread isn't mounted (notebook
+  // hidden): stash the payload — ThreadWrapper consumes it when it mounts.
   useEffect(() => {
     const handleAskAi = (event: CustomEvent) => {
       const { text } = event.detail as { text?: string };
       if (!text?.trim()) return;
       pendingAskAi = { bookHash: bookKey.split('-')[0] || '', text: text.trim() };
-      skipIndexing();
     };
     eventDispatcher.on('ask-ai', handleAskAi);
     return () => {
       eventDispatcher.off('ask-ai', handleAskAi);
     };
-  }, [bookKey, skipIndexing]);
+  }, [bookKey]);
 
   const bookHash = bookKey.split('-')[0] || '';
   const bookTitle = bookData?.book?.title || 'Unknown';
@@ -640,32 +627,9 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
       ? Math.round((indexProgress.current / indexProgress.total) * 100)
       : 0;
 
-  if (!indexed && !isIndexing && !indexSkipped) {
-    return (
-      <div className='flex h-full flex-col items-center justify-center gap-3 p-4 text-center'>
-        <div className='bg-primary/10 rounded-full p-3'>
-          <BookOpenIcon className='text-primary size-6' />
-        </div>
-        <div>
-          <h3 className='text-foreground mb-0.5 text-sm font-medium'>{_('Index This Book')}</h3>
-          <p className='text-muted-foreground text-xs'>
-            {_('Enable AI search and chat for this book')}
-          </p>
-        </div>
-        <Button onClick={handleIndex} size='sm' className='h-8 text-xs'>
-          <BookOpenIcon className='mr-1.5 size-3.5' />
-          {_('Start Indexing')}
-        </Button>
-        <button
-          type='button'
-          onClick={skipIndexing}
-          className='text-base-content/60 hover:text-base-content text-xs underline underline-offset-2'
-        >
-          {_('Chat without indexing')}
-        </button>
-      </div>
-    );
-  }
+  // No gate for the un-indexed book: the chat is always available (grammar
+  // questions, general knowledge, pasted passages need no book context at
+  // all), and the banner keeps Start Indexing one tap away.
 
   if (isIndexing) {
     return (

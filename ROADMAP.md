@@ -54,6 +54,16 @@ chapters: [{ 章节号, 一句话梗概 }]   ← 落地底稿,防滚动总结漂
 
 **预估**:中等偏大(人物抽取质量为主要打磨点)。
 
+### 2. 📋 MCP 支持(Model Context Protocol)
+
+让 AI 助手能连接 MCP 服务器,把外部工具(联网搜索、网页读取、知识库查询等)交给模型调用。要点:
+
+- 传输:web 端仅支持 HTTP/SSE 传输(stdio 需要桌面端 Tauri 侧配合,二期)
+- 配置:MCP 服务器列表(名称 + URL + 可选鉴权头),存 settings,与 AI 连接体系并列
+- 管道:用官方 MCP TypeScript SDK 建立客户端会话,把 tools 桥接进 `streamText` 的 tools 参数(生成管道已有先例:Reedy 的 lookupPassage 工具)
+- 安全:工具调用结果进入上下文前过一道提示词纪律(book passages 同款"数据非指令"约束)
+- 风险:MCP 服务器质量参差;失败要优雅降级为"工具不可用"而非中断对话
+
 ## 🧊 已搁置
 
 ### 陪伴模式(Companion Mode)——设计待成熟
