@@ -57,3 +57,37 @@ describe('resolveConnectionSettings', () => {
     expect(merged.openrouterBaseUrl).toBe('https://global/v1');
   });
 });
+
+describe('resolveConnectionMcpServers', () => {
+  it('inherits all live servers without a connection or without a binding', async () => {
+    const { resolveConnectionMcpServers } = await import('@/services/ai/connectionSettings');
+    const servers = [
+      { id: 'a', name: 'A', deletedAt: 1 } as never,
+      { id: 'b', name: 'B' } as never,
+      { id: 'c', name: 'C' } as never,
+    ];
+    expect(resolveConnectionMcpServers(servers)).toEqual([servers[1], servers[2]]);
+    expect(resolveConnectionMcpServers(servers, { mcpServerIds: undefined } as never)).toEqual([
+      servers[1],
+      servers[2],
+    ]);
+  });
+
+  it('a defined binding restricts to exactly those ids, skipping stale ones', async () => {
+    const { resolveConnectionMcpServers } = await import('@/services/ai/connectionSettings');
+    const servers = [
+      { id: 'b', name: 'B' } as never,
+      { id: 'c', name: 'C' } as never,
+      { id: 'd', name: 'D' } as never,
+    ];
+    expect(resolveConnectionMcpServers(servers, { mcpServerIds: ['c', 'gone'] } as never)).toEqual([
+      servers[1],
+    ]);
+  });
+
+  it('an explicitly empty binding means no tools', async () => {
+    const { resolveConnectionMcpServers } = await import('@/services/ai/connectionSettings');
+    const servers = [{ id: 'b', name: 'B' }] as never[];
+    expect(resolveConnectionMcpServers(servers, { mcpServerIds: [] } as never)).toEqual([]);
+  });
+});

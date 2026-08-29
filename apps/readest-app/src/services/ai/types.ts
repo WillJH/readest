@@ -171,6 +171,12 @@ export interface AIConnection {
    * apply on top.
    */
   systemPrompt?: string;
+  /**
+   * MCP servers this connection may use, by id. Absent = inherit every
+   * enabled server; an empty array = explicitly none (models that handle
+   * tools poorly); stale ids are skipped.
+   */
+  mcpServerIds?: string[];
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;

@@ -31,6 +31,7 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
   const { settings, setSettings, saveSettings } = useSettingsStore();
 
   const connections = settings?.aiConnections ?? [];
+  const mcpServers = (settings?.aiMcpServers ?? []).filter((s) => !s.deletedAt);
   const [editor, setEditor] = useState<AIConnection | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [nameError, setNameError] = useState(false);
@@ -273,6 +274,52 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                 )}
               </span>
             </div>
+
+            {mcpServers.length > 0 && (
+              <div className='flex flex-col gap-2'>
+                <span className='text-base-content/70 text-sm font-medium'>
+                  {_('MCP Tools (optional)')}
+                </span>
+                <div className='flex flex-col gap-1'>
+                  {mcpServers.map((server) => {
+                    const checked = (editor.mcpServerIds ?? null)?.includes(server.id);
+                    return (
+                      <label
+                        key={server.id}
+                        className='hover:bg-base-200/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm'
+                      >
+                        <input
+                          type='checkbox'
+                          className='checkbox checkbox-sm'
+                          checked={checked === true}
+                          onChange={(e) => {
+                            const prev = editor.mcpServerIds ?? null;
+                            const next = prev
+                              ? e.target.checked
+                                ? [...prev, server.id]
+                                : prev.filter((id) => id !== server.id)
+                              : [server.id];
+                            setEditor({
+                              ...editor,
+                              mcpServerIds: next.length > 0 ? next : [],
+                            });
+                          }}
+                        />
+                        <span className='min-w-0 flex-1 truncate'>{server.name}</span>
+                        {!server.enabled && (
+                          <span className='text-base-content/40 text-xs'>({_('Disabled')})</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+                <span className='text-base-content/60 text-xs'>
+                  {editor.mcpServerIds === undefined
+                    ? _('No selection stored — inherits every enabled MCP server.')
+                    : _('Empty selection — this connection gets no MCP tools.')}
+                </span>
+              </div>
+            )}
 
             <div className='flex justify-end gap-2'>
               <button

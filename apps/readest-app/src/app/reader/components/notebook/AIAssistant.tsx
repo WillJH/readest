@@ -17,7 +17,10 @@ import { useBookProgress } from '@/store/readerProgressStore';
 import { useAIChatStore } from '@/store/aiChatStore';
 import { useCharacterStore } from '@/store/characterStore';
 import { aiLogger, createTauriAdapter } from '@/services/ai';
-import { resolveConnectionSettings } from '@/services/ai/connectionSettings';
+import {
+  resolveConnectionMcpServers,
+  resolveConnectionSettings,
+} from '@/services/ai/connectionSettings';
 import {
   LegacyIdbBackend,
   ReedyBackend,
@@ -177,7 +180,7 @@ const AIAssistantChat = ({
         }
       : null,
     onAvatarPick: setAvatarLabel,
-    mcpServers: systemSettings?.aiMcpServers ?? [],
+    mcpServers: resolveConnectionMcpServers(systemSettings?.aiMcpServers ?? [], connection),
     connectionSystemPrompt: connection?.systemPrompt,
   });
 
@@ -200,7 +203,7 @@ const AIAssistantChat = ({
           }
         : null,
       onAvatarPick: setAvatarLabel,
-      mcpServers: systemSettings?.aiMcpServers ?? [],
+      mcpServers: resolveConnectionMcpServers(systemSettings?.aiMcpServers ?? [], connection),
       connectionSystemPrompt: connection?.systemPrompt,
     };
   });

@@ -2333,5 +2333,8 @@
   "Restore Default": "恢复默认",
   "The full system prompt, rules included — edit anything. Placeholders: {{persona}} {{bookTitle}} {{authorName}} {{currentPage}} {{bookPassages}}.": "完整的系统提示词,包含所有限制规则——可任意修改。占位符:{{persona}} {{bookTitle}} {{authorName}} {{currentPage}} {{bookPassages}}。",
   "No {{persona}} placeholder — character and connection prompts are ignored.": "缺少 {{persona}} 占位符——角色和连接的提示词将被忽略。",
-  "No {{bookPassages}} placeholder — retrieved book context is not injected.": "缺少 {{bookPassages}} 占位符——检索到的书籍上下文不会注入。"
+  "No {{bookPassages}} placeholder — retrieved book context is not injected.": "缺少 {{bookPassages}} 占位符——检索到的书籍上下文不会注入。",
+  "MCP Tools (optional)": "MCP 工具(可选)",
+  "No selection stored — inherits every enabled MCP server.": "未做选择——继承所有已启用的 MCP 服务器。",
+  "Empty selection — this connection gets no MCP tools.": "选择为空——此连接不使用任何 MCP 工具。"
 }

@@ -1,4 +1,4 @@
-import type { AIConnection, AISettings } from './types';
+import type { AIConnection, AIMcpServer, AISettings } from './types';
 
 /**
  * Merge a character-bound connection into a copy of the global AISettings,
@@ -30,4 +30,20 @@ export function resolveConnectionSettings(
       break;
   }
   return merged;
+}
+
+/**
+ * The MCP servers a connection may use. A connection that defines
+ * `mcpServerIds` gets exactly that set (stale ids skipped); one that
+ * doesn't (or no connection at all) inherits every configured server —
+ * enable/disable on the server itself remains the global switch.
+ */
+export function resolveConnectionMcpServers(
+  servers: AIMcpServer[],
+  connection?: AIConnection | null,
+): AIMcpServer[] {
+  const live = servers.filter((s) => !s.deletedAt);
+  if (!connection?.mcpServerIds) return live;
+  const ids = new Set(connection.mcpServerIds);
+  return live.filter((s) => ids.has(s.id));
 }
