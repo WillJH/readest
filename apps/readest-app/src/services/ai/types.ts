@@ -161,6 +161,25 @@ export interface AIConnection {
 }
 
 /**
+ * A configured MCP (Model Context Protocol) server. Transport is
+ * Streamable-HTTP with an automatic legacy-SSE fallback; stdio servers are
+ * desktop-only and not supported in v1. Headers are raw `Key: Value` lines
+ * for UI simplicity, parsed at connect time.
+ */
+export interface AIMcpServer {
+  id: string;
+  name: string;
+  /** Streamable-HTTP endpoint URL. */
+  url: string;
+  /** Extra request headers, one `Key: Value` per line. */
+  headers?: string[];
+  enabled: boolean;
+  deletedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
  * A user-defined chat character: a persona prompt that replaces the built-in
  * reading-companion identity/style (anti-spoiler constraints always stay),
  * plus an image gallery the model picks its avatar from per reply.

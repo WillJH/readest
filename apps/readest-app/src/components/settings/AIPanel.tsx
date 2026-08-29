@@ -6,6 +6,7 @@ import {
   PiArrowsClockwise,
   PiSpinner,
   PiPlugs,
+  PiPlug,
   PiUserCircle,
 } from 'react-icons/pi';
 
@@ -30,6 +31,7 @@ import {
 } from './primitives';
 import AICharactersManager from './AICharactersManager';
 import AIConnectionsManager from './AIConnectionsManager';
+import AIMcpServersManager from './AIMcpServersManager';
 
 type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type CustomModelStatus = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -136,6 +138,7 @@ const AIPanel: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [showCharacters, setShowCharacters] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
+  const [showMcpServers, setShowMcpServers] = useState(false);
   const [userInstructions, setUserInstructions] = useState(aiSettings.userInstructions ?? '');
   const [systemPrompt, setSystemPrompt] = useState(aiSettings.systemPrompt ?? '');
 
@@ -451,6 +454,10 @@ const AIPanel: React.FC = () => {
 
   if (showConnections) {
     return <AIConnectionsManager onBack={() => setShowConnections(false)} />;
+  }
+
+  if (showMcpServers) {
+    return <AIMcpServersManager onBack={() => setShowMcpServers(false)} />;
   }
 
   return (
@@ -802,6 +809,19 @@ const AIPanel: React.FC = () => {
           title={_('Manage Connections')}
           status={_('Saved endpoints a character can be bound to.')}
           onClick={() => setShowConnections(true)}
+        />
+      </BoxedList>
+
+      <BoxedList
+        title={_('MCP Servers')}
+        className={disabledSection}
+        cardClassName='overflow-hidden'
+      >
+        <NavigationRow
+          icon={PiPlug}
+          title={_('Manage MCP Servers')}
+          status={_('Tool servers the AI can call while chatting.')}
+          onClick={() => setShowMcpServers(true)}
         />
       </BoxedList>
 

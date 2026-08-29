@@ -5,7 +5,7 @@ import { HighlightColor, HighlightStyle, UserHighlightColor, ViewSettings } from
 import { OPDSCatalog } from './opds';
 import { WebSource } from './webSource';
 import { ABSServer } from './audiobookshelf';
-import type { AICharacter, AIConnection, AISettings } from '@/services/ai/types';
+import type { AICharacter, AIConnection, AIMcpServer, AISettings } from '@/services/ai/types';
 import type { NotebookTab } from '@/store/notebookStore';
 import type { DictionarySettings, ImportedDictionary } from '@/services/dictionaries/types';
 
@@ -523,6 +523,8 @@ export interface SystemSettings {
   aiCharacters?: AICharacter[];
   /** Saved AI provider connections; characters bind one by id. */
   aiConnections?: AIConnection[];
+  /** Configured MCP servers; enabled ones contribute tools to the chat. */
+  aiMcpServers?: AIMcpServer[];
   /**
    * Auto-rotate the background texture among the user's imported images.
    * Rotates only where a texture is actually applied (a page set to 'none'
