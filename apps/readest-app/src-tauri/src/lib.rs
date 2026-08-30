@@ -39,6 +39,7 @@ mod range_file;
 mod sentry_config;
 #[cfg(desktop)]
 mod loopback_oauth;
+mod proxy_env;
 mod spawn_fresh_browser;
 mod transfer_file;
 mod web_browser;
@@ -334,6 +335,13 @@ pub fn run() {
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         }
     }
+
+    // The app's reqwest-based HTTP only honors proxy ENV vars, never the
+    // desktop proxy settings — on the fork owner's proxied network the Google
+    // token exchange died with "error sending request". Adopt the desktop
+    // proxy (gsettings, else a CONNECT-probed local port) before any HTTP.
+    #[cfg(all(target_os = "linux", not(mobile)))]
+    proxy_env::ensure_proxy_env();
 
     // Initialize Sentry as early as possible so panics during startup are
     // captured. `None` DSN (unset SENTRY_DSN) => disabled, so local and fork
