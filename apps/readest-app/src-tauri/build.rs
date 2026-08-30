@@ -53,6 +53,7 @@ fn main() {
             "open_web_browser",
             "set_web_browser_status",
             "spawn_fresh_browser",
+            "start_loopback_oauth_server",
             "verify_update_signature",
             "install_nightly_update",
             "localsend_start",

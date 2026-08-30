@@ -238,6 +238,7 @@
     "allow-open-web-browser",
     "allow-set-web-browser-status",
     "allow-spawn-fresh-browser",
+    "allow-start-loopback-oauth-server",
     "allow-verify-update-signature",
     "allow-install-nightly-update",
     "allow-localsend-start",
