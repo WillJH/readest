@@ -25,6 +25,7 @@ import {
   DEFAULT_VIEW_SETTINGS_CONFIG,
 } from './constants';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
+import { BUILT_IN_PERSONA } from './ai/prompts';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
 
@@ -178,6 +179,7 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     ...DEFAULT_AI_SETTINGS,
     ...settings.aiSettings,
   };
+  seedDefaultCharacter(settings);
 
   settings.localBooksDir = await ctx.fs.getPrefix('Books');
 
@@ -208,6 +210,37 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
 
   return settings;
 }
+
+/**
+ * One-shot seed of the companion character (the character system replaced
+ * the built-in companion identity): a normal, fully editable character
+ * bound to the default connection. The flag rides settings so every device
+ * seeds at most once even before sync converges; deleting the character
+ * sticks because the flag stays set.
+ */
+function seedDefaultCharacter(settings: SystemSettings): void {
+  if (settings.aiSettings?.seededDefaultCharacter) return;
+  settings.aiSettings = {
+    ...settings.aiSettings,
+    seededDefaultCharacter: true,
+  };
+  const existing = settings.aiCharacters ?? [];
+  if (existing.some((c) => !c.deletedAt)) return; // user already has characters
+  settings.aiCharacters = [
+    ...existing,
+    {
+      id: DEFAULT_CHARACTER_ID,
+      name: 'Readest',
+      prompt: BUILT_IN_PERSONA,
+      images: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  ];
+}
+
+/** Stable id of the seeded companion character (delete-safe: never re-seeded). */
+export const DEFAULT_CHARACTER_ID = 'builtin-companion';
 
 export async function saveSettings(fs: FileSystem, settings: SystemSettings): Promise<void> {
   await safeSaveJSON(fs, SETTINGS_FILENAME, 'Settings', settings);

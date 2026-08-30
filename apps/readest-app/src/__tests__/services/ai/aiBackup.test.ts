@@ -12,7 +12,7 @@ import type { AICharacter, AIConnection, AIMcpServer } from '@/services/ai/types
 
 const settings = {
   aiSettings: {
-    provider: 'openrouter',
+    ragConnectionId: 'c-emb',
     openrouterApiKey: 'sk-secret',
     openrouterBaseUrl: 'https://api.example.com/v1',
     userInstructions: 'Answer in Chinese',
@@ -77,9 +77,11 @@ describe('buildAiBackup', () => {
     const data = await buildAiBackup(appService, settings, { includeSecrets: false });
     expect(data.connections[0]!.apiKey).toBeUndefined();
     expect(data.mcpServers[0]!.headers).toBeUndefined();
+    // The retired global provider config never travels — connections carry
+    // it — while the RAG connection reference does survive.
     expect(data.aiSettings.openrouterApiKey).toBeUndefined();
-    // non-secret provider config survives
-    expect(data.aiSettings.openrouterBaseUrl).toBe('https://api.example.com/v1');
+    expect(data.aiSettings.openrouterBaseUrl).toBeUndefined();
+    expect(data.aiSettings.ragConnectionId).toBe('c-emb');
   });
 
   it('round-trips through parseAiBackup', async () => {

@@ -2331,5 +2331,20 @@
   "Export connections, characters (with avatars), MCP servers, and prompts to one file; import merges by id.": "导出连接、角色(含头像)、MCP 服务器与提示词为单个文件;导入按 id 合并。",
   "Include API keys and auth headers": "包含 API 密钥和鉴权头",
   "Exporting…": "导出中…",
-  "Imported {{connections}} connections, {{characters}} characters ({{images}} avatars), {{servers}} MCP servers": "已导入 {{connections}} 条连接、{{characters}} 个角色({{images}} 张头像)、{{servers}} 个 MCP 服务器"
+  "Imported {{connections}} connections, {{characters}} characters ({{images}} avatars), {{servers}} MCP servers": "已导入 {{connections}} 条连接、{{characters}} 个角色({{images}} 张头像)、{{servers}} 个 MCP 服务器",
+  "The only place providers and API keys are configured.": "服务商与 API 密钥的唯一配置处。",
+  "RAG Indexing Connection": "RAG 索引连接",
+  "Same as the default connection": "与默认连接相同",
+  "Embeddings for book indexing and retrieval. Point it at a cheap embedding-capable endpoint — chat connections never need embeddings. Changing it requires re-indexing.": "书籍索引与检索的嵌入模型。指向一个支持嵌入的便宜端点即可——聊天连接完全不需要嵌入。更换后需重建索引。",
+  "Personas bound to a connection, with the MCP tools they may use.": "绑定连接的角色，及其可用的 MCP 工具。",
+  "No {{persona}} placeholder — the character persona is ignored.": "缺少 {{persona}} 占位符——角色 persona 将被忽略。",
+  "Appended to every message you send. Never shown in the thread. Who the AI is comes from the character persona; these instructions are user-level.": "附加到你发送的每条消息，不在对话中显示。AI 的身份来自角色 persona；这里是用户级指令。",
+  "Set as default connection": "设为默认连接",
+  "Embedding Model (optional)": "嵌入模型（可选）",
+  "Only used when this connection is the RAG indexing connection. Leave blank for the provider default; endpoints without embeddings simply cannot index.": "仅当此连接作为 RAG 索引连接时使用。留空用服务商默认；不支持嵌入的端点只是无法建索引。",
+  "-- Select a connection --": "—— 选择连接 ——",
+  "A connection is required — create one in Manage Connections first.": "必须选择连接——请先到管理连接里创建。",
+  "The model this character chats through.": "该角色对话所用的模型。",
+  "No available connection. Create one in Settings → AI → Manage Connections": "尚无可用连接。请到 设置 → AI → 管理连接 创建。",
+  "e.g. nomic-embed-text": "例如 nomic-embed-text"
 }

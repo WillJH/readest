@@ -30,19 +30,11 @@ export interface AiBackupData {
 }
 
 /** aiSettings keys that carry provider secrets — stripped unless requested. */
-const SECRET_AI_SETTING_KEYS = ['aiGatewayApiKey', 'openrouterApiKey'] as const;
+// The global provider/key config is retired — connections carry it now.
+const SECRET_AI_SETTING_KEYS = [] as const;
 
 const NON_SECRET_AI_SETTING_KEYS = [
-  'provider',
-  'ollamaBaseUrl',
-  'ollamaModel',
-  'ollamaEmbeddingModel',
-  'aiGatewayModel',
-  'aiGatewayCustomModel',
-  'aiGatewayEmbeddingModel',
-  'openrouterBaseUrl',
-  'openrouterModel',
-  'openrouterEmbeddingModel',
+  'ragConnectionId',
   'spoilerProtection',
   'maxContextChunks',
   'indexingMode',
@@ -176,9 +168,8 @@ export function parseAiBackup(raw: string): AiBackupData {
       apiKey: typeof c['apiKey'] === 'string' ? c['apiKey'] : undefined,
       model: typeof c['model'] === 'string' ? c['model'] : undefined,
       systemPrompt: typeof c['systemPrompt'] === 'string' ? c['systemPrompt'] : undefined,
-      mcpServerIds: Array.isArray(c['mcpServerIds'])
-        ? c['mcpServerIds'].filter((x): x is string => typeof x === 'string')
-        : undefined,
+      embeddingModel: typeof c['embeddingModel'] === 'string' ? c['embeddingModel'] : undefined,
+      isDefault: c['isDefault'] === true ? true : undefined,
       createdAt: Number(c['createdAt'] ?? Date.now()),
       updatedAt: Number(c['updatedAt'] ?? Date.now()),
     };

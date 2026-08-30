@@ -47,16 +47,10 @@ import { createFileCryptoSession, decryptSecretValue, encryptSecretValue } from 
  * the replica whitelist already documents for its own array fields.
  */
 export const FILE_SETTINGS_EXTRA_FIELDS = [
-  'aiSettings.provider',
-  'aiSettings.ollamaBaseUrl',
-  'aiSettings.ollamaModel',
-  'aiSettings.ollamaEmbeddingModel',
-  'aiSettings.aiGatewayModel',
-  'aiSettings.aiGatewayCustomModel',
-  'aiSettings.aiGatewayEmbeddingModel',
-  'aiSettings.openrouterBaseUrl',
-  'aiSettings.openrouterModel',
-  'aiSettings.openrouterEmbeddingModel',
+  // User-level AI preferences only — provider/key/model config lives on the
+  // connections (the aiConnections array below) and never syncs its keys.
+  // ragConnectionId is a connection REFERENCE, safe to sync.
+  'aiSettings.ragConnectionId',
   // The prompt levels the user asked to sync: global template + standing
   // instructions live here; per-connection and per-character prompts ride
   // the aiConnections / aiCharacters array fields below.
@@ -89,8 +83,6 @@ const SCALAR_SECRET_PATHS = new Set<string>([
   'webdav.password',
   's3.accessKeyId',
   's3.secretAccessKey',
-  'aiSettings.aiGatewayApiKey',
-  'aiSettings.openrouterApiKey',
 ]);
 
 /**

@@ -23,7 +23,8 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { settings } = useSettingsStore();
-  const connections = settings?.aiConnections ?? [];
+  const connections = (settings?.aiConnections ?? []).filter((c) => !c.deletedAt);
+  const mcpServers = (settings?.aiMcpServers ?? []).filter((s) => !s.deletedAt);
   const {
     characters,
     imageUrls,
@@ -40,6 +41,7 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
   const [editor, setEditor] = useState<AICharacter | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [nameError, setNameError] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const templatesInView = useMemo(() => AI_CHARACTER_TEMPLATES.map(templateInView), []);
 
@@ -57,6 +59,7 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
     setShowTemplatePicker(false);
     setIsNew(true);
     setNameError(false);
+    setConnectionError(false);
     setEditor({
       id: uuidv4(),
       name: template?.name ?? '',
@@ -70,6 +73,7 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
   const handleEdit = useCallback((character: AICharacter) => {
     setIsNew(false);
     setNameError(false);
+    setConnectionError(false);
     setEditor({ ...character });
   }, []);
 
@@ -84,6 +88,12 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
       setNameError(true);
       return;
     }
+    // The connection binding is required: the character is the unit that
+    // decides which provider (and which MCP tools) a conversation uses.
+    if (!editor.connectionId) {
+      setConnectionError(true);
+      return;
+    }
     await upsertCharacter(envConfig, { ...editor, name: editor.name.trim() });
     if (isNew) {
       // Keep the editor open so the gallery (which needs the saved id) is
@@ -92,7 +102,7 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
     } else {
       handleCloseEditor();
     }
-  }, [editor, envConfig, upsertCharacter, isNew, handleCloseEditor]);
+  }, [editor, envConfig, upsertCharacter, isNew, handleCloseEditor, connections]);
 
   const handleDelete = useCallback(
     async (character: AICharacter) => {
@@ -294,22 +304,73 @@ const AICharactersManager: React.FC<AICharactersManagerProps> = ({ onBack }) => 
               <span className='text-base-content/70 text-sm font-medium'>{_('AI Connection')}</span>
               <select
                 value={editor.connectionId ?? ''}
-                onChange={(e) =>
-                  setEditor({ ...editor, connectionId: e.target.value || undefined })
-                }
-                className='select select-sm w-full bg-base-100'
+                onChange={(e) => {
+                  setConnectionError(false);
+                  setEditor({ ...editor, connectionId: e.target.value || undefined });
+                }}
+                className={clsx(
+                  'select select-sm w-full bg-base-100',
+                  connectionError && 'select-error',
+                )}
               >
-                <option value=''>{_('Global Settings')}</option>
+                <option value=''>{_('-- Select a connection --')}</option>
                 {connections.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.isDefault ? `${c.name} · ${_('Default')}` : c.name}
                   </option>
                 ))}
               </select>
-              <span className='text-base-content/60 text-xs'>
-                {_('The model this character chats through; embeddings stay global.')}
-              </span>
+              {connectionError ? (
+                <span className='text-error text-xs'>
+                  {_('A connection is required — create one in Manage Connections first.')}
+                </span>
+              ) : (
+                <span className='text-base-content/60 text-xs'>
+                  {_('The model this character chats through.')}
+                </span>
+              )}
             </div>
+
+            {mcpServers.length > 0 && (
+              <div className='flex flex-col gap-2'>
+                <span className='text-base-content/70 text-sm font-medium'>
+                  {_('MCP Tools (optional)')}
+                </span>
+                <div className='flex flex-col gap-1'>
+                  {mcpServers.map((server) => {
+                    const checked = (editor.mcpServerIds ?? []).includes(server.id);
+                    return (
+                      <label
+                        key={server.id}
+                        className='hover:bg-base-200/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm'
+                      >
+                        <input
+                          type='checkbox'
+                          className='checkbox checkbox-sm'
+                          checked={checked}
+                          onChange={(e) => {
+                            const prev = editor.mcpServerIds ?? [];
+                            const next = e.target.checked
+                              ? [...prev, server.id]
+                              : prev.filter((id) => id !== server.id);
+                            setEditor({ ...editor, mcpServerIds: next });
+                          }}
+                        />
+                        <span className='min-w-0 flex-1 truncate'>{server.name}</span>
+                        {!server.enabled && (
+                          <span className='text-base-content/40 text-xs'>({_('Disabled')})</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+                <span className='text-base-content/60 text-xs'>
+                  {_(
+                    'Off by default — check the servers this character may use. Unchecked means no tools.',
+                  )}
+                </span>
+              </div>
+            )}
 
             <div className='flex flex-col gap-2'>
               <span className='text-base-content/70 text-sm font-medium'>

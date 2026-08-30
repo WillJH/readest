@@ -3,7 +3,7 @@
 import clsx from 'clsx';
 import React, { useCallback, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { LuPencil, LuPlus, LuTrash2, LuPlugZap } from 'react-icons/lu';
+import { LuPencil, LuPlus, LuStar, LuTrash2, LuPlugZap } from 'react-icons/lu';
 
 import Dialog from '@/components/Dialog';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -30,8 +30,7 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
   const { envConfig, appService } = useEnv();
   const { settings, setSettings, saveSettings } = useSettingsStore();
 
-  const connections = settings?.aiConnections ?? [];
-  const mcpServers = (settings?.aiMcpServers ?? []).filter((s) => !s.deletedAt);
+  const connections = (settings?.aiConnections ?? []).filter((c) => !c.deletedAt);
   const [editor, setEditor] = useState<AIConnection | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [nameError, setNameError] = useState(false);
@@ -74,9 +73,13 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
       return;
     }
     const saved = { ...editor, name: editor.name.trim(), updatedAt: Date.now() };
+    // The first connection becomes the default automatically — system-level
+    // calls and unbound characters need a fallback to exist.
+    const isFirst = connections.length === 0;
+    const withDefault = isFirst ? { ...saved, isDefault: true } : saved;
     const list = connections.some((c) => c.id === saved.id)
-      ? connections.map((c) => (c.id === saved.id ? saved : c))
-      : [...connections, saved];
+      ? connections.map((c) => (c.id === saved.id ? withDefault : c))
+      : [...connections, withDefault];
     await persist(list);
     setEditor(null);
     setIsNew(false);
@@ -89,6 +92,17 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
       }
     },
     [appService, connections, persist, _],
+  );
+
+  // Exactly one default: flag the chosen connection and clear the rest. The
+  // default is the fallback for system-level calls and unbound characters.
+  const handleSetDefault = useCallback(
+    async (connection: AIConnection) => {
+      await persist(
+        connections.map((c) => ({ ...c, isDefault: c.id === connection.id || undefined })),
+      );
+    },
+    [connections, persist],
   );
 
   const baseUrlLabel =
@@ -131,8 +145,11 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
               className='group hover:bg-base-300/50 flex items-center gap-3 px-4 py-3 transition-colors duration-150'
             >
               <div className='min-w-0 flex-1'>
-                <p className='text-base-content line-clamp-1 text-sm font-medium'>
-                  {connection.name}
+                <p className='text-base-content line-clamp-1 flex items-center gap-1.5 text-sm font-medium'>
+                  {connection.isDefault && (
+                    <span className='badge badge-primary badge-xs shrink-0'>{_('Default')}</span>
+                  )}
+                  <span className='truncate'>{connection.name}</span>
                 </p>
                 <p className='text-base-content/50 line-clamp-1 text-xs'>
                   <span className='badge badge-ghost badge-xs me-1'>
@@ -143,6 +160,17 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                 </p>
               </div>
               <div className='flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100'>
+                {!connection.isDefault && (
+                  <button
+                    type='button'
+                    onClick={() => void handleSetDefault(connection)}
+                    className='btn btn-ghost btn-xs'
+                    aria-label={_('Set as default connection')}
+                    title={_('Set as default connection')}
+                  >
+                    <LuStar size={12} />
+                  </button>
+                )}
                 <button
                   type='button'
                   onClick={() => handleEdit(connection)}
@@ -251,8 +279,23 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                 onChange={(e) => setEditor({ ...editor, model: e.target.value })}
                 placeholder={_('Chat model id')}
               />
+            </div>
+
+            <div className='flex flex-col gap-2'>
+              <span className='text-base-content/70 text-sm font-medium'>
+                {_('Embedding Model (optional)')}
+              </span>
+              <input
+                type='text'
+                className='input input-sm w-full'
+                value={editor.embeddingModel ?? ''}
+                onChange={(e) => setEditor({ ...editor, embeddingModel: e.target.value })}
+                placeholder={_('e.g. nomic-embed-text')}
+              />
               <span className='text-base-content/60 text-xs'>
-                {_('Embedding models stay on the global AI settings.')}
+                {_(
+                  'Only used when this connection is the RAG indexing connection. Leave blank for the provider default; endpoints without embeddings simply cannot index.',
+                )}
               </span>
             </div>
 
@@ -274,52 +317,6 @@ const AIConnectionsManager: React.FC<AIConnectionsManagerProps> = ({ onBack }) =
                 )}
               </span>
             </div>
-
-            {mcpServers.length > 0 && (
-              <div className='flex flex-col gap-2'>
-                <span className='text-base-content/70 text-sm font-medium'>
-                  {_('MCP Tools (optional)')}
-                </span>
-                <div className='flex flex-col gap-1'>
-                  {mcpServers.map((server) => {
-                    const checked = (editor.mcpServerIds ?? null)?.includes(server.id);
-                    return (
-                      <label
-                        key={server.id}
-                        className='hover:bg-base-200/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm'
-                      >
-                        <input
-                          type='checkbox'
-                          className='checkbox checkbox-sm'
-                          checked={checked === true}
-                          onChange={(e) => {
-                            const prev = editor.mcpServerIds ?? null;
-                            const next = prev
-                              ? e.target.checked
-                                ? [...prev, server.id]
-                                : prev.filter((id) => id !== server.id)
-                              : [server.id];
-                            setEditor({
-                              ...editor,
-                              mcpServerIds: next.length > 0 ? next : [],
-                            });
-                          }}
-                        />
-                        <span className='min-w-0 flex-1 truncate'>{server.name}</span>
-                        {!server.enabled && (
-                          <span className='text-base-content/40 text-xs'>({_('Disabled')})</span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-                <span className='text-base-content/60 text-xs'>
-                  {_(
-                    'Off by default — check the servers this connection may use. Unchecked means no tools.',
-                  )}
-                </span>
-              </div>
-            )}
 
             <div className='flex justify-end gap-2'>
               <button

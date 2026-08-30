@@ -64,6 +64,15 @@ export interface AISettings {
   indexingMode: 'on-demand' | 'background';
 
   /**
+   * The connection used for RAG indexing/retrieval embeddings, by id.
+   * Absent = fall back to the default connection. Point it at a cheap
+   * embedding-capable endpoint — chat connections never need embeddings.
+   */
+  ragConnectionId?: string;
+  /** One-shot guard so the seeded companion character is created once. */
+  seededDefaultCharacter?: boolean;
+
+  /**
    * Reedy MVP retrieval (Turso vector + Tantivy FTS + CFI citations).
    * MVP is desktop-only — the runtime gate in `selectBackend()` enforces
    * isTauri() regardless of this flag. UI in M1.8 disables the toggle on web.
@@ -172,11 +181,18 @@ export interface AIConnection {
    */
   systemPrompt?: string;
   /**
-   * MCP servers this connection may use, by id. Absent = inherit every
-   * enabled server; an empty array = explicitly none (models that handle
-   * tools poorly); stale ids are skipped.
+   * Embedding model for RAG indexing/retrieval — only meaningful on the
+   * connection designated as the RAG connection. Absent = the provider's
+   * default embedding model; a provider without embeddings leaves this
+   * empty and simply can't index.
    */
-  mcpServerIds?: string[];
+  embeddingModel?: string;
+  /**
+   * The fallback connection: binds the seeded companion character and
+   * serves system-level calls. Exactly one live connection should carry
+   * it; the first connection created becomes the default automatically.
+   */
+  isDefault?: boolean;
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;
@@ -214,8 +230,17 @@ export interface AICharacter {
   images: AICharacterImage[];
   /** Shown when the model's [avatar: …] pick doesn't resolve. */
   defaultImageId?: string;
-  /** Provider connection this character chats through; unset = global. */
+  /**
+   * Provider connection this character chats through. Required for
+   * user-created characters (the editor enforces it); the seeded companion
+   * character leaves it unset and resolves to the default connection.
+   */
   connectionId?: string;
+  /**
+   * MCP servers this character may call, by id — the character is the
+   * permission unit for tools. Absent/empty = no tools (strictly opt-in).
+   */
+  mcpServerIds?: string[];
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;

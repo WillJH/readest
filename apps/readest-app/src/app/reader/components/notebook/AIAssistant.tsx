@@ -18,8 +18,11 @@ import { useAIChatStore } from '@/store/aiChatStore';
 import { useCharacterStore } from '@/store/characterStore';
 import { aiLogger, createTauriAdapter } from '@/services/ai';
 import {
-  resolveConnectionMcpServers,
-  resolveConnectionSettings,
+  liveConnections,
+  resolveChatSettings,
+  resolveCharacterConnection,
+  resolveCharacterMcpServers,
+  resolveRagSettings,
 } from '@/services/ai/connectionSettings';
 import {
   LegacyIdbBackend,
@@ -29,7 +32,7 @@ import {
   type RetrievalBackend,
   type SourceItem,
 } from '@/services/ai/adapters';
-import type { EmbeddingProgress, AISettings, AIMessage } from '@/services/ai/types';
+import type { EmbeddingProgress, AIMessage } from '@/services/ai/types';
 import type { RetrievedChunk } from '@/services/reedy/retrieval/BookRetriever';
 import { useEnv } from '@/context/EnvContext';
 import { eventDispatcher } from '@/utils/event';
@@ -87,7 +90,6 @@ interface AIAssistantProps {
 
 // inner component that uses the runtime hook
 const AIAssistantChat = ({
-  aiSettings,
   bookHash,
   bookTitle,
   authorName,
@@ -100,7 +102,6 @@ const AIAssistantChat = ({
   onSourceClick,
   onResetIndex,
 }: {
-  aiSettings: AISettings;
   bookHash: string;
   bookTitle: string;
   authorName: string;
@@ -138,14 +139,10 @@ const AIAssistantChat = ({
     conversations.find((c) => c.id === activeConversationId)?.characterId ?? draftCharacterId;
   const character = characters.find((c) => c.id === characterId && !c.deletedAt);
 
-  // A character-bound connection overrides the chat provider; embeddings and
-  // retrieval stay on the global settings.
-  const connection = character?.connectionId
-    ? (systemSettings?.aiConnections ?? []).find(
-        (c) => c.id === character.connectionId && !c.deletedAt,
-      )
-    : undefined;
-  const chatSettings = resolveConnectionSettings(aiSettings, connection);
+  // Character model: the character's bound connection, else the default
+  // connection — the global provider config is retired.
+  const connection = resolveCharacterConnection(systemSettings, character);
+  const chatSettings = resolveChatSettings(systemSettings, character);
 
   const resolveAvatarUrl = useCallback(
     (label: string | null | undefined): string | undefined => {
@@ -181,7 +178,7 @@ const AIAssistantChat = ({
         }
       : null,
     onAvatarPick: setAvatarLabel,
-    mcpServers: resolveConnectionMcpServers(systemSettings?.aiMcpServers ?? [], connection),
+    mcpServers: resolveCharacterMcpServers(systemSettings?.aiMcpServers ?? [], character),
     connectionSystemPrompt: connection?.systemPrompt,
   });
 
@@ -205,7 +202,7 @@ const AIAssistantChat = ({
           }
         : null,
       onAvatarPick: setAvatarLabel,
-      mcpServers: resolveConnectionMcpServers(systemSettings?.aiMcpServers ?? [], connection),
+      mcpServers: resolveCharacterMcpServers(systemSettings?.aiMcpServers ?? [], character),
       connectionSystemPrompt: connection?.systemPrompt,
     };
   });
@@ -592,6 +589,8 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const bookLang = (Array.isArray(langRaw) ? langRaw[0] : langRaw) ?? undefined;
   const currentPage = progress?.pageinfo?.current ?? 0;
   const aiSettings = settings?.aiSettings;
+  // Retrieval/embedding runs on the RAG connection (dedicated, else default).
+  const ragSettings = useMemo(() => resolveRagSettings(settings), [settings]);
 
   // Per-instance source store, plus the active backend chosen via the same
   // selectBackend gate the chat adapter will hit (Reedy on Tauri when
@@ -599,13 +598,15 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const sourceStore = useMemo(() => new ReedySourceStore(), []);
   const backend = useMemo<RetrievalBackend | null>(() => {
     if (!aiSettings) return null;
-    const legacy = new LegacyIdbBackend(aiSettings);
+    // Retrieval backends embed with the RAG connection's model — the index
+    // is only retrievable with the model that built it.
+    const legacy = new LegacyIdbBackend(ragSettings);
     const reedy: RetrievalBackend | null =
       appService && isTauriAppPlatform()
-        ? new ReedyBackend(appService as AppService, aiSettings)
+        ? new ReedyBackend(appService as AppService, ragSettings)
         : null;
-    return selectBackend({ settings: aiSettings, isTauri: isTauriAppPlatform(), legacy, reedy });
-  }, [aiSettings, appService]);
+    return selectBackend({ settings: ragSettings, isTauri: isTauriAppPlatform(), legacy, reedy });
+  }, [aiSettings, ragSettings, appService]);
 
   // check if book is indexed on mount
   useEffect(() => {
@@ -670,6 +671,18 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
     );
   }
 
+  // Rule: an empty connections list means no AI connection exists yet —
+  // prompt instead of ever issuing a request.
+  if (liveConnections(settings).length === 0) {
+    return (
+      <div className='flex h-full items-center justify-center p-4'>
+        <p className='text-muted-foreground text-sm'>
+          {_('No available connection. Create one in Settings → AI → Manage Connections')}
+        </p>
+      </div>
+    );
+  }
+
   // show nothing while checking index status to prevent flicker
   if (isLoading) {
     return null;
@@ -727,7 +740,6 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
         </div>
       )}
       <AIAssistantChat
-        aiSettings={aiSettings}
         bookHash={bookHash}
         bookTitle={bookTitle}
         authorName={authorName}

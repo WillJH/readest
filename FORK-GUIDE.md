@@ -128,6 +128,18 @@ main (upstream 0.12.6)
 - **每书视图设置保持单机**(2026-08-30 复议后定案):字号/版式是设备偏好(手机 vs 桌面屏幕差异),不同步——曾短暂实现过 `RemoteBookConfig.viewSettings` 独立信封键,后按上游原策略撤回;`referencePageCount`(纸质版页数,书籍属性)仍照旧同步。合并侧对旧线上文档里遗留的 viewSettings 键直接忽略,本地排版不受污染。
 - 测试:`__tests__/services/sync/file/configWire.test.ts`(15 例);`replicaPublish`/`replicaSettingsSync` 测试 mock 掉 channelRouting 以继续测发磅机制本身。
 
+### 2.10 AI 连接模型重构(2026-08-30 定案,feat/ai-connection-model)
+
+用户定的三原则:连接是唯一凭证配置处(管理连接);角色是权限单元(绑定连接+MCP,均必填/0..n);空连接列表=尚无任何 AI 连接,提示且不发起请求。
+
+- **解析层** `services/ai/connectionSettings.ts`:`resolveCharacterConnection`(角色绑定→默认连接)、`resolveRagConnection`(专用→默认→无)、`userLevelBase`(旧全局 provider/key 字段一律剥到默认值,不再作为配置面)、`resolveChatSettings/resolveRagSettings`(连接覆写)。**旧全局服务商/API key 配置已从 UI 删除、不迁移、移出同步白名单**(类型保留防旧数据加载崩)。
+- **默认连接**:第一条连接自动成为默认,可手动改;播种角色和系统级调用走它。`AIConnection` +`isDefault`/`embeddingModel`(后者仅 RAG 连接用)。
+- **RAG 专用连接**:设置→AI 下拉指定(`aiSettings.ragConnectionId`,未设回落默认);索引/检索 backend 一律用 `resolveRagSettings` 构造(AIAssistant 的 backend memo),聊天连接无需嵌入能力。换嵌入模型需重建索引。
+- **MCP 绑定移到角色**:`AICharacter.mcpServerIds`(0..n);连接编辑器的 MCP 多选已删,存量连接的 mcpServerIds 直接作废。`resolveCharacterMcpServers` 严格 opt-in。
+- **内置伴侣退役**:settingsService.loadSettings 一次性播种 `builtin-companion` 角色(persona=BUILT_IN_PERSONA,可删改,`seededDefaultCharacter` 标记防复活);角色编辑器连接必填。
+- **空连接守卫**:AIAssistant 渲染"尚无可用连接"面板;连接存在缺 key → 请求时对话流内提示(2.9 之前的机制保留)。
+- 测试:connectionSettings.test.ts 重写(15 例)。
+
 ## 3. 已知设计决策/坑
 
 1. **头像协议**:角色有图库时 system prompt 追加 AVATAR PROTOCOL,回复以 `[avatar: label]` 开头;adapter 流式剥离(半截标签抑制显示),`onAvatarPick` 通知 UI;存储/历史只见净文本;重载会话回退默认图(非持久)。
