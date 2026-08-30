@@ -223,7 +223,7 @@ describe('isSyncCategoryEnabled', () => {
 });
 
 describe('SYNC_CATEGORIES', () => {
-  test('covers all eleven user-facing categories (incl. settings + stats + credentials)', () => {
+  test('covers all twelve user-facing categories (incl. settings + stats + credentials + vocabulary)', () => {
     expect([...SYNC_CATEGORIES].sort()).toEqual(
       [
         'abs_server',
@@ -237,11 +237,12 @@ describe('SYNC_CATEGORIES', () => {
         'settings',
         'stats',
         'texture',
+        'vocabulary',
       ].sort(),
     );
   });
 
-  test('credentials is the last item (rendered as the last toggle in Manage Sync)', () => {
-    expect(SYNC_CATEGORIES[SYNC_CATEGORIES.length - 1]).toBe('credentials');
+  test('vocabulary is the last item (rendered as the last toggle in Manage Sync)', () => {
+    expect(SYNC_CATEGORIES[SYNC_CATEGORIES.length - 1]).toBe('vocabulary');
   });
 });

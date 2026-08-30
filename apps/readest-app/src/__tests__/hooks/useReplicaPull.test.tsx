@@ -198,12 +198,15 @@ describe('useReplicaPull', () => {
     // override applied uniformly.
     expect(managerMock.pullMany).toHaveBeenCalledTimes(1);
     const [batchedKinds, batchedOpts] = managerMock.pullMany.mock.calls[0]!;
-    expect([...batchedKinds].sort()).toEqual(['dictionary', 'font', 'texture']);
+    // Fork routing: texture/settings now ride the third-party file channel,
+    // so the native boot batch only carries the native kinds.
+    expect([...batchedKinds].sort()).toEqual(['dictionary', 'font']);
     expect(batchedOpts).toEqual({ since: null });
-    // pullSpy is `replicaPullAndApply`; expect 1 invocation per kind
-    // (settings + the three from the batch) all running through the
-    // apply path.
-    expect(pullSpy).toHaveBeenCalledTimes(4);
+    // pullSpy is `replicaPullAndApply`; expect 1 invocation per kind:
+    // settings still enters the apply path (its native precheck then
+    // rejects under the fork routing — no HTTP leaves) plus the two
+    // batched kinds.
+    expect(pullSpy).toHaveBeenCalledTimes(3);
   });
 
   test('skips when appService is null', () => {
@@ -398,7 +401,9 @@ describe('useReplicaPull — incremental auto-pull (visibility / online / interv
     expect(bootArgs[0]).toEqual(['dictionary']);
     expect(bootArgs[1]).toEqual({ since: null });
     const focusArgs = managerMock.pullMany.mock.calls[1]!;
-    expect([...focusArgs[0]].sort()).toEqual(['dictionary', 'settings']);
+    // Fork routing: settings left the native channel; the incremental batch
+    // carries the remaining native kinds only.
+    expect([...focusArgs[0]].sort()).toEqual(['dictionary']);
     expect(focusArgs[1]).toBeUndefined();
   });
 

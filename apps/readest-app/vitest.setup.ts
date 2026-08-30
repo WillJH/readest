@@ -61,3 +61,31 @@ if (typeof HTMLMediaElement !== 'undefined') {
   HTMLMediaElement.prototype.pause = () => {};
   HTMLMediaElement.prototype.load = () => {};
 }
+
+// jsdom@28 under vitest@4 half-initialises Web Storage: the `localStorage`
+// getter exists on the window but returns undefined (the storage area never
+// attaches), so every push-hash / cipher-fingerprint / settings store that
+// persists via localStorage silently no-ops and its specs fail
+// (replicaSettingsSync et al. — 500+ suite failures trace to this). Every
+// platform the app ships on provides localStorage, so borrow a REAL one
+// from a scratch http-origin JSDOM: a spec-shaped Storage instance that also
+// satisfies StorageEvent's `storageArea` WebIDL conversion (a plain object
+// does not). Individual specs remain free to stubGlobal over it.
+if (typeof (globalThis as { localStorage?: unknown }).localStorage === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { JSDOM } = require('jsdom') as typeof import('jsdom');
+  const storageDom = new JSDOM('', { url: 'http://localhost/' });
+  const storage = storageDom.window.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: storage,
+    configurable: true,
+    writable: true,
+  });
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'localStorage', {
+      value: storage,
+      configurable: true,
+      writable: true,
+    });
+  }
+}

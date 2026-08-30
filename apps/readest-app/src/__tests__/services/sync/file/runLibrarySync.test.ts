@@ -310,9 +310,13 @@ describe('getReadyFileSyncBackends', () => {
     expect(getReadyFileSyncBackends(settings)).toEqual(['webdav', 'gdrive']);
   });
 
-  test('excludes everything when the plan gate pauses third-party sync', () => {
+  test('free plans are NOT paused while the premium gate is disabled (ungated fork policy)', () => {
+    // CLOUD_SYNC_REQUIRES_PREMIUM is hardcoded false — third-party sync is
+    // ungated for personal use, so a free plan must keep both backends.
+    // If this ever fails, someone re-enabled the paywall: revisit the fork's
+    // ungating decision before "fixing" the test back to expecting [].
     setCachedUserPlan('free');
-    expect(getReadyFileSyncBackends(settings)).toEqual([]);
+    expect(getReadyFileSyncBackends(settings)).toEqual(['webdav', 'gdrive']);
   });
 
   test('rules icloud out off Apple platforms (canBackendRun false)', () => {

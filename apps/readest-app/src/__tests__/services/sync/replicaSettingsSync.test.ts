@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const publishMock = vi.fn();
+// The fork's channel routing moves settings/OPDS/vocabulary/etc. off the
+// native replica channel (see services/sync/channelRouting.ts). These specs
+// unit-test the publish/credential machinery itself, so neutralize the
+// routing gate here — routing behavior is covered in channelRouting.test.ts.
+vi.mock('@/services/sync/channelRouting', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/sync/channelRouting')>();
+  return {
+    ...actual,
+    isNativeSyncCategoryEnabled: (id: string) => actual.isFileSyncCategoryEnabled(id),
+  };
+});
 vi.mock('@/services/sync/replicaPublish', () => ({
   publishReplicaUpsert: (...args: unknown[]) => publishMock(...args),
 }));
