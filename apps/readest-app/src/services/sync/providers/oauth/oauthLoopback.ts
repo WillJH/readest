@@ -54,12 +54,18 @@ export interface DesktopLoopbackDeps {
   connectDeadlineMs: number;
 }
 
-/** Bind the `start_server` command; a malformed port fails fast. */
+/**
+ * Bind the single-phase loopback capture server (`start_loopback_oauth_server`
+ * — captures the callback straight off the first GET's request line, no
+ * browser-side JavaScript involved); resolves with the bound port. A malformed
+ * port fails fast.
+ */
 const startServerViaTauri = async (): Promise<number> => {
-  const port = await invoke<number>('start_server');
+  const port = await invoke<number>('start_loopback_oauth_server');
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new Error(`Loopback server returned an invalid port: ${String(port)}`);
   }
+  console.info('[gdrive] loopback capture server bound on port', port);
   return port;
 };
 
@@ -81,7 +87,9 @@ const subscribeViaWindowEvents = async (
   onUrl: (url: string) => void,
 ): Promise<() => void> =>
   getCurrentWindow().listen<string>('redirect_uri', ({ payload }) => {
-    if (typeof payload === 'string' && isLoopbackUrlForPort(payload, port)) onUrl(payload);
+    if (typeof payload !== 'string') return;
+    console.info('[gdrive] loopback redirect_uri event:', payload);
+    if (isLoopbackUrlForPort(payload, port)) onUrl(payload);
   });
 
 /** Production loopback deps, bound to the real Tauri command and plugins. */
