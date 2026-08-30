@@ -13,7 +13,7 @@
   ```bash
   cd apps/readest-app
   API_BASE_URL=https://web.readest.com \
-  NEXT_DEV_ALLOWED_ORIGINS='http://127.0.0.1:41790,http://localhost:41790' \
+  NEXT_DEV_ALLOWED_ORIGINS='127.0.0.1,localhost' \
   pnpm dev-web -p 41790
   ```
   `API_BASE_URL` 指向官方后端(登录/标注同步可用;容器内无 S3 凭证,字体/词典文件下载 500 属预期)。**分支切换后需重启 dev server**,否则 Turbopack 吃旧模块。
@@ -93,7 +93,7 @@ main (upstream 0.12.6)
 
 ### 2.6 关键补丁与修复
 - **@assistant-ui/react@0.11.58 patch**(`patches/`):RemoteThreadListHookInstanceManager 裸调用 `__internal_setGetInitializePromise` 丢 this 崩溃("can't access property _getInitializePromise");改为方法调用形式。依赖变更需在 pnpm-workspace.yaml patchedDependencies 注册并 pnpm install。
-- **dev origins**:next.config.mts `NEXT_DEV_ALLOWED_ORIGINS`(端口转发下 Next16 拦跨域 HMR 白屏)。
+- **dev origins**:next.config.mts `NEXT_DEV_ALLOWED_ORIGINS`(端口转发下 Next16 拦跨域 HMR 白屏)。值必须是**裸主机名**(逗号分隔,如 `127.0.0.1,localhost`),带 `http://` 或端口会静默匹配失败照样白屏——2026-08 踩过。
 
 ### 2.7 背景图轮换
 - `settings.backgroundTextureRotation{enabled,intervalMin,shuffle,textureIds?}`;`Images` 根目录轮换(不动各页静态选择);`textureIds` 缺省=全部图片,显式集合=子集,全选回落"全部";设置→主题→背景图→Auto Rotate(10min~每天/随机/图片池勾选缩略图)。`customTextureStore.rotateBackgroundTexture` + `useBackgroundTextureRotation`(Providers 挂载,30s tick,document.hidden 不轮换)。
