@@ -17,6 +17,7 @@
   pnpm dev-web -p 41790
   ```
   `API_BASE_URL` 指向官方后端(登录/标注同步可用;容器内无 S3 凭证,字体/词典文件下载 500 属预期)。**分支切换后需重启 dev server**,否则 Turbopack 吃旧模块。
+- **统一出包脚本(2026-08-30 起)**:`./scripts/release-artifacts.sh [apk|appimage|both]`——一条命令出包并把产物拷到**仓库根 `releases/`**(稳定命名 `Readest-<版本>-android-arm64.apk` / `Readest-<版本>-linux-amd64.AppImage`,覆盖式;目录已 gitignore)。脚本内含图标再生成与抖动还原、Android 环境变量、AppImage 的 NO_STRIP/createUpdaterArtifacts 处理。原始产物路径(脚本从这两处拷贝):APK 在 `apps/readest-app/src-tauri/gen/android/app/build/outputs/apk/universal/release/`,AppImage 在**仓库根** `target/release/bundle/appimage/`(注意不是 app 目录的 target)。
 - 安卓出包(工具链已就位,约 10 分钟):`gen/android/app/build.gradle.kts` 的 `applicationId` 已本地改为 `com.bilingify.readest.dev`(未提交,勿提交);需先 `pnpm tauri icon ../../data/icons/readest-book.png`(生成 ic_launcher_background 颜色资源,否则资源链接失败);命令:
   ```bash
   export JAVA_HOME=/usr/lib/jvm/java-17-openjdk ANDROID_HOME=/opt/android-sdk NDK_HOME=/opt/android-sdk/ndk/29.0.14206865 PATH="$HOME/.cargo/bin:$PATH"
