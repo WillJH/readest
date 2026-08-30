@@ -57,6 +57,29 @@ export const getGoogleLoopbackClientSecret = (): string | undefined =>
   process.env['NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_SECRET'] || undefined;
 
 /**
+ * Fork: whether desktop Linux should connect via the loopback runner, which
+ * requires BOTH the BYO client id above AND the explicit opt-in
+ * `NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK=1`.
+ *
+ * Loopback is NOT the default because it authenticates as the BYO Desktop-type
+ * client, and `drive.file` visibility is per OAuth client: a loopback-connected
+ * desktop lands in its own Drive namespace and never sees the `Readest/` tree
+ * the mobile builds create with the one official client (two sync folders,
+ * zero cross-device sync — the exact regression this gate exists to prevent).
+ * The default is therefore the official client + reverse-DNS deep link, same
+ * namespace as Android/iOS. Loopback stays as the escape hatch for desktops
+ * whose OS scheme routing is broken — opting in knowingly trades a split
+ * namespace (mobile stops seeing the desktop) for a working connect.
+ */
+export const shouldUseLinuxLoopbackRunner = (deps: {
+  osType?: string;
+  loopbackClientId?: string;
+}): boolean =>
+  deps.osType === 'linux' &&
+  !!deps.loopbackClientId &&
+  process.env['NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK'] === '1';
+
+/**
  * The official Readest **Web-type** Google OAuth client id used by the browser
  * GIS flow (its authorized JavaScript origins are `web.readest.com` + the
  * localhost dev origin). Separate from the iOS-type

@@ -12,6 +12,7 @@ import {
   getGoogleLoopbackClientId,
   getGoogleLoopbackClientSecret,
   getGoogleWebClientId,
+  shouldUseLinuxLoopbackRunner,
 } from './buildGoogleDriveProvider';
 import { createDriveTokenPersistence } from './driveTokenStore';
 import { runDesktopDeepLinkOAuth } from '@/services/sync/providers/oauth/oauthDesktop';
@@ -84,12 +85,16 @@ export const runGoogleDriveConnect = async (): Promise<ConnectGoogleDriveResult>
   if (!persistence) {
     throw new Error('Google Drive requires a Readest app build with secure storage');
   }
-  // Fork: on desktop Linux a BYO Desktop-type client switches the connect to
-  // the loopback flow (localhost redirect, RFC 8252) — the official client's
-  // reverse-DNS deep link depends on OS scheme routing that Wayland/NVIDIA
-  // desktops routinely break, leaving the connect spinner forever. The
-  // loopback id is also the one the persisted token refreshes against, so
-  // connect and refresh stay on the same client.
+  // Fork: desktop Linux runs the official client's reverse-DNS deep link by
+  // default — the SAME OAuth client as Android/iOS, hence the same
+  // `drive.file` namespace (drive.file visibility is per client, so a
+  // different client would silently fork the sync tree into a second
+  // `Readest/` folder the phone can never see). The loopback runner (BYO
+  // Desktop-type client, `http://127.0.0.1:<port>` redirect, RFC 8252) is the
+  // explicit opt-in for desktops where OS scheme routing is broken: set
+  // NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID (+SECRET) and
+  // NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK=1. Its tokens also refresh against the
+  // BYO client, so connect and refresh stay on whichever client connected.
   let osTypeValue: ReturnType<typeof osType> | undefined;
   try {
     osTypeValue = osType();
@@ -97,9 +102,9 @@ export const runGoogleDriveConnect = async (): Promise<ConnectGoogleDriveResult>
     // osType() is Tauri-only; off-Tauri this path isn't reached anyway.
   }
   const loopbackClientId = getGoogleLoopbackClientId();
-  if (loopbackClientId && osTypeValue === 'linux') {
+  if (shouldUseLinuxLoopbackRunner({ osType: osTypeValue, loopbackClientId })) {
     return connectGoogleDrive({
-      clientId: loopbackClientId,
+      clientId: loopbackClientId!,
       clientSecret: getGoogleLoopbackClientSecret(),
       fetchFn: resolveFetch(),
       persistence,

@@ -18,6 +18,7 @@ import {
   buildGoogleDriveProvider,
   getGoogleClientId,
   getGoogleWebClientId,
+  shouldUseLinuxLoopbackRunner,
 } from '@/services/sync/providers/gdrive/buildGoogleDriveProvider';
 
 const CLIENT_ID = 'cid.apps.googleusercontent.com';
@@ -84,5 +85,45 @@ describe('buildGoogleDriveProvider', () => {
     expect(provider).not.toBeNull();
     expect(provider?.rootPath).toBe('/');
     expect(isSyncKeychainAvailable).not.toHaveBeenCalled();
+  });
+});
+
+describe('shouldUseLinuxLoopbackRunner', () => {
+  const LOOPBACK_ID = 'loopback.apps.googleusercontent.com';
+
+  test('linux + BYO client id alone does NOT opt in — official client stays the default', () => {
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID', LOOPBACK_ID);
+    expect(shouldUseLinuxLoopbackRunner({ osType: 'linux', loopbackClientId: LOOPBACK_ID })).toBe(
+      false,
+    );
+  });
+
+  test('linux + BYO client id + explicit opt-in flag selects the loopback runner', () => {
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID', LOOPBACK_ID);
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK', '1');
+    expect(shouldUseLinuxLoopbackRunner({ osType: 'linux', loopbackClientId: LOOPBACK_ID })).toBe(
+      true,
+    );
+  });
+
+  test('the opt-in flag alone (no BYO client id) stays on the official client', () => {
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK', '1');
+    expect(shouldUseLinuxLoopbackRunner({ osType: 'linux', loopbackClientId: undefined })).toBe(
+      false,
+    );
+  });
+
+  test('non-linux platforms never use the loopback runner, even fully opted in', () => {
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID', LOOPBACK_ID);
+    vi.stubEnv('NEXT_PUBLIC_GOOGLE_LINUX_LOOPBACK', '1');
+    expect(shouldUseLinuxLoopbackRunner({ osType: 'windows', loopbackClientId: LOOPBACK_ID })).toBe(
+      false,
+    );
+    expect(shouldUseLinuxLoopbackRunner({ osType: 'macos', loopbackClientId: LOOPBACK_ID })).toBe(
+      false,
+    );
+    expect(shouldUseLinuxLoopbackRunner({ osType: undefined, loopbackClientId: LOOPBACK_ID })).toBe(
+      false,
+    );
   });
 });
