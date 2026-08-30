@@ -476,6 +476,7 @@ pub fn run() {
             localsend::commands::localsend_cancel_send,
             #[cfg(desktop)]
             spawn_fresh_browser::spawn_fresh_browser,
+            #[cfg(desktop)]
             loopback_oauth::start_loopback_oauth_server,
             nightly_update::verify_update_signature,
             #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
