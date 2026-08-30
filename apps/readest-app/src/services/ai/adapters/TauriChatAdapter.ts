@@ -1,6 +1,6 @@
 import { streamText, stepCountIs } from 'ai';
 import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react';
-import { getAIProvider } from '../providers';
+import { getAIProvider, isAIProviderConfigured } from '../providers';
 import { aiLogger } from '../logger';
 import { buildAvatarProtocol, buildSystemPrompt } from '../prompts';
 import { parseAvatarTag } from '../avatarTag';
@@ -17,6 +17,12 @@ import { getMcpTools, pruneMcpSessions, type McpToolMap } from '@/services/mcp/m
  */
 export interface TauriAdapterOptions {
   settings: AISettings;
+  /**
+   * Localized copy for the reply emitted when the active provider has no
+   * API key yet (a normal state — keys are device-local). Surfaced as an
+   * assistant message at REQUEST time, never as a thrown render-time error.
+   */
+  missingKeyMessage?: string;
   bookHash: string;
   bookTitle: string;
   authorName: string;
@@ -89,6 +95,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
       const options = getOptions();
       const {
         settings,
+        missingKeyMessage,
         bookHash,
         bookTitle,
         authorName,
@@ -129,6 +136,23 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
           : `turn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       sourceStore.replace(turnId, []);
       onTurnStart?.(turnId);
+
+      // Request-time key check (rule: prompt only when the user actually
+      // asks the model something). A missing key replies in-thread instead
+      // of throwing — the notebook stays perfectly usable.
+      if (!isAIProviderConfigured(settings)) {
+        yield {
+          content: [
+            {
+              type: 'text',
+              text:
+                missingKeyMessage ??
+                'Configure the AI provider API key in Settings (keys stay on this device).',
+            },
+          ],
+        };
+        return;
+      }
 
       const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
       const query =

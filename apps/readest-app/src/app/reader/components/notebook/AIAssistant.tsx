@@ -165,6 +165,7 @@ const AIAssistantChat = ({
   // use a ref to keep up-to-date options without triggering re-renders of the runtime
   const optionsRef = useRef({
     settings: chatSettings,
+    missingKeyMessage: `${_('Configure the AI provider API key in Settings')} (${_('API keys stay on this device and are never synced')})`,
     bookHash,
     bookTitle,
     authorName,
@@ -188,6 +189,7 @@ const AIAssistantChat = ({
   useEffect(() => {
     optionsRef.current = {
       settings: chatSettings,
+      missingKeyMessage: `${_('Configure the AI provider API key in Settings')} (${_('API keys stay on this device and are never synced')})`,
       bookHash,
       bookTitle,
       authorName,
@@ -564,6 +566,7 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isIndexing, setIsIndexing] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
   const [indexProgress, setIndexProgress] = useState<EmbeddingProgress | null>(null);
   const [indexed, setIndexed] = useState(false);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
@@ -621,16 +624,25 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const handleIndex = useCallback(async () => {
     if (!bookData?.bookDoc || !aiSettings || !backend) return;
     setIsIndexing(true);
+    setIndexError(null);
     try {
       await backend.indexBook(bookData.bookDoc, bookHash, { onProgress: setIndexProgress });
       setIndexed(true);
     } catch (e) {
       aiLogger.rag.indexError(bookHash, (e as Error).message);
+      // Request-time failure surfaces inline (rule: a missing key is
+      // prompted when the user actually asks for an AI action, not before).
+      const message = (e as Error).message;
+      setIndexError(
+        message.includes('API key required')
+          ? _('Configure the AI provider API key in Settings')
+          : message,
+      );
     } finally {
       setIsIndexing(false);
       setIndexProgress(null);
     }
-  }, [bookData?.bookDoc, bookHash, aiSettings]);
+  }, [bookData?.bookDoc, bookHash, aiSettings, _]);
 
   const handleResetIndex = useCallback(async () => {
     if (!appService || !backend) return;
@@ -701,7 +713,9 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
       {!indexed && (
         <div className='border-base-300/40 flex items-center justify-between gap-2 border-b px-3 py-1.5'>
           <span className='text-base-content/60 text-xs'>
-            {_('Not indexed — answers lack full-book context.')}
+            {indexError
+              ? `${_('Not indexed — answers lack full-book context.')} · ${indexError}`
+              : _('Not indexed — answers lack full-book context.')}
           </span>
           <button
             type='button'

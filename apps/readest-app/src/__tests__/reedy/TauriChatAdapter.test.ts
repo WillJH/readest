@@ -21,11 +21,14 @@ vi.mock('ai', async (importOriginal) => {
 
 // Provider must return a model object that streamText accepts. Since
 // streamText itself is mocked we can hand back any opaque sentinel.
+const mockIsConfigured = vi.fn((_settings: unknown) => true);
+
 vi.mock('@/services/ai/providers', () => ({
   getAIProvider: () => ({
     getModel: () => ({ __mock: 'language-model' }),
     getEmbeddingModel: () => ({ __mock: 'embedding-model' }),
   }),
+  isAIProviderConfigured: (settings: unknown) => mockIsConfigured(settings),
 }));
 
 // Import after mocks so the adapter picks up the mocked streamText.
@@ -85,6 +88,8 @@ async function drainRun(adapterRun: AsyncIterable<unknown>): Promise<void> {
 
 beforeEach(() => {
   streamTextMock.mockReset();
+  mockIsConfigured.mockReset();
+  mockIsConfigured.mockReturnValue(true);
   stepCountIsMock.mockClear();
   // Default: streamText returns an empty text stream so the for-await loop
   // in the adapter completes immediately.
@@ -98,6 +103,32 @@ beforeEach(() => {
 });
 
 describe('TauriChatAdapter wiring (M1.11)', () => {
+  it('replies with the missing-key prompt instead of throwing when the provider has no key', async () => {
+    mockIsConfigured.mockReturnValue(false);
+    const adapter = createTauriAdapter(() => ({
+      settings: baseSettings,
+      missingKeyMessage: '请填写 API 密钥',
+      bookHash: 'bk1',
+      bookTitle: 'Title',
+      authorName: 'Author',
+      currentPage: 0,
+      backend: fakeReedy(),
+      sourceStore: new ReedySourceStore(),
+    }));
+
+    const chunks: unknown[] = [];
+    const run = adapter.run({
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+      abortSignal: undefined,
+    } as unknown as Parameters<typeof adapter.run>[0]) as AsyncIterable<{
+      content?: Array<{ type: string; text?: string }>;
+    }>;
+    for await (const chunk of run) chunks.push(chunk);
+
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(chunks)).toContain('请填写 API 密钥');
+  });
+
   it('Reedy backend: streamText receives tools.lookupPassage and stopWhen=stepCountIs(3)', async () => {
     const sourceStore = new ReedySourceStore();
     const backend = fakeReedy();

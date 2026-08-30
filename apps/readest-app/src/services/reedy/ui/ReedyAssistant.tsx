@@ -9,6 +9,8 @@ import { BookIndexer } from '../retrieval/BookIndexer';
 import { BookRetriever } from '../retrieval/BookRetriever';
 import { ReedyDb } from '../db/ReedyDb';
 import { createReedyModels } from '../models/registry';
+import { isAIProviderConfigured } from '@/services/ai/providers';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import {
   createAddCitationTool,
@@ -65,7 +67,7 @@ export interface ReedyAssistantProps {
  * → AgentThread → Composer flow. The legacy MVP path stays at the
  * notebook level under the same flag's 'mvp' value.
  */
-export function ReedyAssistant({
+function ReedyAssistantInner({
   appService,
   bookDoc,
   bookHash,
@@ -391,4 +393,26 @@ export function ReedyAssistant({
       />
     </div>
   );
+}
+
+/**
+ * Render-safe wrapper: constructing the models throws when the provider has
+ * no key yet — a perfectly normal state on a fresh device (keys are
+ * deliberately device-local under the fork's sync policy). The predicate
+ * never throws, so an unconfigured device sees the configure prompt instead
+ * of the error page taking down the notebook.
+ */
+export function ReedyAssistant(props: ReedyAssistantProps) {
+  const _ = useTranslation();
+  const { aiSettings } = props;
+  if (!isAIProviderConfigured(aiSettings)) {
+    return (
+      <div className='flex h-full items-center justify-center p-4'>
+        <p className='text-muted-foreground text-sm'>
+          {_('Configure the AI provider API key in Settings')}
+        </p>
+      </div>
+    );
+  }
+  return <ReedyAssistantInner {...props} />;
 }

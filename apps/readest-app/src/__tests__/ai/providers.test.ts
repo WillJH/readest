@@ -36,7 +36,7 @@ vi.mock('@ai-sdk/openai-compatible', () => ({
 import { OllamaProvider } from '@/services/ai/providers/OllamaProvider';
 import { AIGatewayProvider } from '@/services/ai/providers/AIGatewayProvider';
 import { OpenRouterProvider } from '@/services/ai/providers/OpenRouterProvider';
-import { getAIProvider } from '@/services/ai/providers';
+import { getAIProvider, isAIProviderConfigured } from '@/services/ai/providers';
 import type { AISettings } from '@/services/ai/types';
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 
@@ -307,5 +307,21 @@ describe('getAIProvider', () => {
     } as AISettings;
 
     expect(() => getAIProvider(settings)).toThrow('Unknown provider');
+  });
+});
+
+describe('isAIProviderConfigured', () => {
+  test('ollama never needs a key', () => {
+    expect(isAIProviderConfigured({ ...DEFAULT_AI_SETTINGS, provider: 'ollama' })).toBe(true);
+  });
+  test('openrouter configured only with a key', () => {
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, provider: 'openrouter' };
+    expect(isAIProviderConfigured(settings)).toBe(false);
+    expect(isAIProviderConfigured({ ...settings, openrouterApiKey: 'sk-1' })).toBe(true);
+  });
+  test('ai-gateway configured only with a key', () => {
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, provider: 'ai-gateway' };
+    expect(isAIProviderConfigured(settings)).toBe(false);
+    expect(isAIProviderConfigured({ ...settings, aiGatewayApiKey: 'k' })).toBe(true);
   });
 });
