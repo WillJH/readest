@@ -53,6 +53,7 @@ import { useUICSS } from '@/hooks/useUICSS';
 import { useDemoBooks } from './hooks/useDemoBooks';
 import { useBooksSync } from './hooks/useBooksSync';
 import { useLibraryFileSync } from './hooks/useLibraryFileSync';
+import { useConfigFileSync } from './hooks/useConfigFileSync';
 import { useBookTransferActions } from './hooks/useBookTransferActions';
 import { useAutoImportFolders } from './hooks/useAutoImportFolders';
 import { useInboxDrainer } from '@/hooks/useInboxDrainer';
@@ -387,6 +388,9 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   // Google Drive): keeps library.json current on import / delete / book-close,
   // parity with useBooksSync. No-op when no provider is enabled.
   useLibraryFileSync();
+  // Account-level config artifacts (settings/AI/OPDS/ABS, textures,
+  // vocabulary, stats, AI chats) on the enabled third-party backends.
+  useConfigFileSync();
   const { checkOPDSSubscriptions } = useOPDSSubscriptions();
   useABSSync();
   useInboxDrainer();

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AIConversation, AIMessage } from '@/services/ai/types';
 import { aiStore } from '@/services/ai/storage/aiStore';
+import { recordChatDeletion } from '@/services/sync/file/chatsFileSync';
 
 interface AIChatState {
   activeConversationId: string | null;
@@ -122,6 +123,9 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
   deleteConversation: async (id: string) => {
     const { currentBookHash, activeConversationId } = get();
     await aiStore.deleteConversation(id);
+    // File-channel tombstone so the deletion propagates to peers via
+    // config/chats.json.
+    recordChatDeletion(id);
 
     if (currentBookHash) {
       const conversations = await aiStore.getConversations(currentBookHash);

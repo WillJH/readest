@@ -48,6 +48,7 @@ import {
 import { cryptoSession } from '@/libs/crypto/session';
 import { ensurePassphraseUnlocked } from '@/services/sync/passphraseGate';
 import { isCredentialsSyncEnabled, isSyncCategoryEnabled } from '@/services/sync/syncCategories';
+import { isNativeSyncCategoryEnabled } from '@/services/sync/channelRouting';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 
 const ENCRYPTED_PATHS: ReadonlySet<string> = new Set(SETTINGS_ENCRYPTED_FIELDS);
@@ -521,6 +522,13 @@ let unsubscribe: (() => void) | null = null;
  */
 export const initSettingsSync = (initialSettings?: SystemSettings): void => {
   if (unsubscribe) return;
+  // Fork routing: settings ride the third-party file channel
+  // (file/settingsFileSync.ts). The native replica publish loop must stay
+  // quiet or the two transports would fight over the same fields — the
+  // official server would keep distributing this device's stale settings
+  // alongside the Drive doc. Subscription stays dormant unless the fork's
+  // routing ever changes back.
+  if (!isNativeSyncCategoryEnabled(SETTINGS_KIND)) return;
   if (initialSettings) {
     for (const path of SETTINGS_WHITELIST) {
       const v = readPath(initialSettings, path);

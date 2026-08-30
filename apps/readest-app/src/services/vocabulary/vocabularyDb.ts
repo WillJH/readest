@@ -258,6 +258,43 @@ export class VocabularyDb {
     return { ...toWord(rows[0]), contexts: contexts.map(toContext) };
   }
 
+  /**
+   * Full-state export for file-channel sync: every word with its contexts.
+   * Two queries (words, contexts) grouped in memory — the per-word context
+   * join would otherwise run once per word at vocabulary scale.
+   */
+  async getAllWords(): Promise<VocabularyWordDetail[]> {
+    const rows = await this.db.select<WordRow>(
+      `SELECT vocabulary.*,
+         (SELECT COUNT(*) FROM vocabulary_contexts c WHERE c.word_id = vocabulary.id) AS context_count,
+         (SELECT GROUP_CONCAT(DISTINCT c.book_hash) FROM vocabulary_contexts c WHERE c.word_id = vocabulary.id) AS book_hashes
+       FROM vocabulary ORDER BY vocabulary.word_key ASC`,
+    );
+    if (rows.length === 0) return [];
+    const contexts = await this.db.select<ContextRow & { word_id: string }>(
+      `SELECT *, word_id FROM vocabulary_contexts ORDER BY created_at ASC`,
+    );
+    const byWord = new Map<string, ContextRow[]>();
+    for (const c of contexts) {
+      const list = byWord.get(c.word_id);
+      if (list) list.push(c);
+      else byWord.set(c.word_id, [c]);
+    }
+    return rows.map((row) => ({
+      ...toWord(row),
+      contexts: (byWord.get(row.id) ?? []).map(toContext),
+    }));
+  }
+
+  /** Row id for a word key, or null when the word isn't captured locally. */
+  async findWordIdByKey(wordKey: string): Promise<string | null> {
+    const rows = await this.db.select<{ id: string }>(
+      `SELECT id FROM vocabulary WHERE word_key = ? LIMIT 1`,
+      [wordKey],
+    );
+    return rows[0]?.id ?? null;
+  }
+
   async setPrimaryDefinition(id: string, index: number): Promise<void> {
     await this.db.execute(`UPDATE vocabulary SET primary_index = ?, updated_at = ? WHERE id = ?`, [
       index,

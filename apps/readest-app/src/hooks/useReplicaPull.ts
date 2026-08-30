@@ -43,7 +43,7 @@ import {
 } from '@/services/sync/replicaPullAndApply';
 import type { ReplicaAdapter } from '@/services/sync/replicaRegistry';
 import { getAccessToken } from '@/utils/access';
-import { isSyncCategoryEnabled } from '@/services/sync/syncCategories';
+import { isNativeSyncCategoryEnabled } from '@/services/sync/channelRouting';
 import { uniqueId } from '@/utils/misc';
 import type { EnvConfigType } from '@/services/environment';
 import type { AppService, BaseDir } from '@/types/system';
@@ -214,7 +214,7 @@ const buildReplicaPullDeps = <T extends ReplicaLocalRecord>(
   isAuthenticated: pullOverride
     ? undefined
     : async () => {
-        if (!isSyncCategoryEnabled(config.kind)) return false;
+        if (!isNativeSyncCategoryEnabled(config.kind)) return false;
         return !!(await getAccessToken());
       },
 });
@@ -495,7 +495,7 @@ const triggerIncrementalPullAll = (): void => {
     // cursor that pull advanced.
     if (!pulledKinds.has(kind)) continue;
     if (pullInFlight.has(kind)) continue;
-    if (!isSyncCategoryEnabled(kind)) continue;
+    if (!isNativeSyncCategoryEnabled(kind)) continue;
     kindsToPull.push(kind);
   }
   if (kindsToPull.length === 0) return;
@@ -681,7 +681,7 @@ export const useReplicaPull = ({
           // which will fetch the missed rows. This keeps boot bandwidth
           // proportional to what the user actually sync's.
           const eligible = otherPending.filter(
-            (k) => !pulledKinds.has(k) && isSyncCategoryEnabled(k),
+            (k) => !pulledKinds.has(k) && isNativeSyncCategoryEnabled(k),
           );
           if (eligible.length === 0) return;
           // Claim both slots up front so a concurrently-scheduled mount

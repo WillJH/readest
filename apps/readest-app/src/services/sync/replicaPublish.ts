@@ -4,6 +4,7 @@ import { getReplicaAdapter } from './replicaRegistry';
 import { getReplicaSync } from './replicaSync';
 import { encryptPackedFields } from './replicaCryptoMiddleware';
 import { isCredentialsSyncEnabled, isSyncCategoryEnabled } from './syncCategories';
+import { isNativeSyncCategoryEnabled } from './channelRouting';
 import type { FieldsObject, Hlc, ReplicaRow } from '@/types/replica';
 
 /**
@@ -16,6 +17,9 @@ import type { FieldsObject, Hlc, ReplicaRow } from '@/types/replica';
  *   - replica sync is not initialized (e.g., user signed out)
  *   - the kind has no registered adapter
  *   - the user is not authenticated
+ *   - the kind is file-exclusive (fork routing: settings, textures,
+ *     vocabulary, OPDS/ABS ride the third-party file channel — they
+ *     must never reach the official server)
  */
 export const publishReplicaUpsert = async <T>(
   kind: string,
@@ -23,7 +27,7 @@ export const publishReplicaUpsert = async <T>(
   contentId: string,
   reincarnation?: string,
 ): Promise<void> => {
-  if (!isSyncCategoryEnabled(kind)) return;
+  if (!isNativeSyncCategoryEnabled(kind)) return;
   const ctx = getReplicaSync();
   if (!ctx) return;
   const adapter = getReplicaAdapter<T>(kind);
@@ -81,10 +85,10 @@ export const publishReplicaUpsert = async <T>(
  * reincarnation token does.
  *
  * No-op when replica sync isn't initialized or the user isn't
- * authenticated.
+ * authenticated, or the kind is file-exclusive (fork routing).
  */
 export const publishReplicaDelete = async (kind: string, contentId: string): Promise<void> => {
-  if (!isSyncCategoryEnabled(kind)) return;
+  if (!isNativeSyncCategoryEnabled(kind)) return;
   const ctx = getReplicaSync();
   if (!ctx) return;
   const adapter = getReplicaAdapter(kind);

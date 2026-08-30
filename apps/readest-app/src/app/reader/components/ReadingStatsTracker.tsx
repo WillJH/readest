@@ -4,15 +4,13 @@ import { useEffect, useRef } from 'react';
 import { getBookProgress, useBookProgress } from '@/store/readerProgressStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { StatisticsDb } from '@/services/statistics/statisticsDb';
 import { TrackerCore, type FlushedEvent } from '@/services/statistics/trackerCore';
 import { getBookHashFromKey, ttsSessionManager } from '@/services/tts/TTSSessionManager';
 import { DEFAULT_STATS_TRACKING_CONFIG } from '@/types/statistics';
-import { SyncClient } from '@/libs/sync';
 import { BookOrbitClient } from '@/services/bookorbit/BookOrbitClient';
 import { pushStatsToBookOrbit } from '@/services/bookorbit/statsPush';
-import { pushStats, pullStats } from '@/services/statistics/statsSync';
+import { requestFileConfigSync } from '@/services/sync/file/runConfigSync';
 import { isSyncCategoryEnabled } from '@/services/sync/syncCategories';
 import { useSettingsStore } from '@/store/settingsStore';
 import { eventDispatcher } from '@/utils/event';
@@ -27,12 +25,11 @@ const runBestEffort = (work: Promise<unknown>): void => {
 };
 
 export default function ReadingStatsTracker({ bookKey }: { bookKey: string }) {
-  const { appService } = useEnv();
+  const { appService, envConfig } = useEnv();
   // Progress lives in readerProgressStore, not readerStore.viewStates.
   const progress = useBookProgress(bookKey);
   // booksData is keyed by book id = bookKey.split('-')[0].
   const getBookData = useBookDataStore((s) => s.getBookData);
-  const { user } = useAuth();
   const coreRef = useRef(new TrackerCore(DEFAULT_STATS_TRACKING_CONFIG));
   const dbRef = useRef<StatisticsDb | null>(null);
   const idleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,7 +52,10 @@ export default function ReadingStatsTracker({ bookKey }: { bookKey: string }) {
   // Book.author is the single-string author field; upsertBook takes authors: string.
   const authors = book?.author ?? '';
 
-  const syncEnabled = () => !!user && isSyncCategoryEnabled('stats');
+  // Stats ride the file channel (Readest/config/stats.json) — no Readest
+  // account involved anymore; the debounced config pass uploads the merged
+  // event set to every enabled backend.
+  const syncEnabled = () => !!envConfig && isSyncCategoryEnabled('stats');
 
   // BookOrbit stats push needs no Readest account — only the integration.
   const bookOrbitStatsPush = (db: StatisticsDb): Promise<unknown> | undefined => {
@@ -74,7 +74,7 @@ export default function ReadingStatsTracker({ bookKey }: { bookKey: string }) {
   };
 
   const pushToAllTargets = (db: StatisticsDb) => {
-    if (syncEnabled()) runBestEffort(pushStats(db, new SyncClient()));
+    if (syncEnabled()) requestFileConfigSync(envConfig!);
     const bookOrbitPush = bookOrbitStatsPush(db);
     if (bookOrbitPush) runBestEffort(bookOrbitPush);
   };
@@ -94,7 +94,7 @@ export default function ReadingStatsTracker({ bookKey }: { bookKey: string }) {
       StatisticsDb.open(appService).then((db) => {
         if (cancelled) return;
         dbRef.current = db;
-        if (syncEnabled()) runBestEffort(pullStats(db, new SyncClient()));
+        if (syncEnabled()) requestFileConfigSync(envConfig!);
       }),
     );
     return () => {

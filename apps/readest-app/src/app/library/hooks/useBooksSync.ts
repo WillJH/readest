@@ -18,6 +18,7 @@ import { isDemoBook } from '@/services/demoBooks';
 import { isFeedBook } from '@/services/rss/feedBookUrl';
 import { ensureFeedBookCover } from '@/services/rss/feedBook';
 import { runFileLibrarySyncPass } from '@/services/sync/file/runLibrarySync';
+import { runFileConfigSyncPass } from '@/services/sync/file/runConfigSync';
 import {
   pickFresherReadingStatus,
   needsCoverRefresh,
@@ -115,6 +116,10 @@ export const useBooksSync = () => {
         let fileSucceeded = false;
         if (runFilePass) {
           const result = await runFileLibrarySyncPass(envConfig, _);
+          // The manual refresh also carries the account-level config
+          // artifacts (settings/AI/vocabulary/stats/chats/textures) —
+          // same backends, same pass semantics.
+          void runFileConfigSyncPass(envConfig, _).catch(() => {});
           // A run that could not write library.json converged NOTHING, however
           // many books it uploaded: peers read membership, tombstones and the
           // uploaded-file record from that one file. Reporting it as "N books

@@ -7,6 +7,7 @@ import {
   publishVocabularyUpsert,
   type VocabularyReplicaRecord,
 } from '@/services/vocabulary/vocabularySync';
+import { recordVocabularyDeletion } from '@/services/sync/file/vocabularyFileSync';
 import type { EnvConfigType } from '@/services/environment';
 
 interface VocabularyState {
@@ -81,6 +82,10 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
     const db = await VocabularyDb.open(appService);
     await db.deleteWord(id);
     set({ words: get().words.filter((w) => w.id !== id) });
+    // File-channel tombstone so the removal propagates to peers via
+    // config/vocabulary.json (the replica publish below is dormant under
+    // the fork's channel routing).
+    if (word) recordVocabularyDeletion(word.word);
     if (word) publishVocabularyDelete(word.word);
   },
 

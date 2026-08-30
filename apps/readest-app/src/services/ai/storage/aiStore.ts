@@ -449,6 +449,31 @@ class AIStore {
       req.onerror = () => reject(req.error);
     });
   }
+
+  // ── File-channel sync support: full-state reads (no cache, no filter) ──
+
+  /** Every conversation across all books, for building the sync doc. */
+  async getAllConversations(): Promise<AIConversation[]> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const req = db
+        .transaction(CONVERSATIONS_STORE, 'readonly')
+        .objectStore(CONVERSATIONS_STORE)
+        .getAll();
+      req.onsuccess = () => resolve(req.result as AIConversation[]);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /** Every message across all conversations, for building the sync doc. */
+  async getAllMessages(): Promise<AIMessage[]> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(MESSAGES_STORE, 'readonly').objectStore(MESSAGES_STORE).getAll();
+      req.onsuccess = () => resolve(req.result as AIMessage[]);
+      req.onerror = () => reject(req.error);
+    });
+  }
 }
 
 export const aiStore = new AIStore();

@@ -27,6 +27,7 @@ import HintInfo from './HintInfo';
 import ReadingRuler from './ReadingRuler';
 import DoubleBorder from './DoubleBorder';
 import ReadingStatsTracker from './ReadingStatsTracker';
+import { useConfigFileSync } from '../../library/hooks/useConfigFileSync';
 
 interface BooksGridProps {
   bookKeys: string[];
@@ -287,6 +288,10 @@ const BookCell = React.memo(BookCellInner);
 const BooksGrid: React.FC<BooksGridProps> = ({ bookKeys, onCloseBook, onGoToLibrary }) => {
   const _ = useTranslation();
   const { appService } = useEnv();
+  // Config artifacts (settings/AI/vocabulary/stats/chats) keep syncing while
+  // the user reads — the reader is where prompts, vocabulary captures and
+  // chat messages actually change.
+  useConfigFileSync();
   // Per-field selectors — see store/readerProgressStore.ts header. The grid
   // only re-renders on hoveredBookKey changes (header/footer toggle);
   // setGridInsets is a stable action ref.
