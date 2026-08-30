@@ -85,7 +85,13 @@ const GoogleDriveForm: React.FC = () => {
       eventDispatcher.dispatch('toast', { type: 'info', message: _('Connected') });
     } catch (e) {
       console.warn('[gdrive] connect failed', e);
-      eventDispatcher.dispatch('toast', { type: 'error', message: _('Failed to connect') });
+      // Fork: surface the reason (token endpoint errors already name the
+      // cause, e.g. "HTTP 400: redirect_uri_mismatch"); release builds have
+      // no devtools, so the toast is the only place the user can read it.
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: `${_('Failed to connect')}: ${e instanceof Error ? e.message : String(e)}`,
+      });
     } finally {
       setIsConnecting(false);
     }

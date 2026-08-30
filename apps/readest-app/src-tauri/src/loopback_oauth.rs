@@ -115,6 +115,7 @@ pub fn start_loopback_oauth_server(window: Window) -> Result<u16, String> {
                         Some(path) => match callback_url_from_request_path(&path, port) {
                             Some(url) => {
                                 respond(&mut conn, "200 OK", SUCCESS_PAGE);
+                                log::info!("[loopback-oauth] captured callback: {url}");
                                 let _ = window.emit(REDIRECT_EVENT, url);
                                 return;
                             }
