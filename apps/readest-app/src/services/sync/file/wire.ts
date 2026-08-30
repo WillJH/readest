@@ -48,20 +48,16 @@ export interface RemoteBookConfig {
 /**
  * Convert the live local BookConfig into the wire envelope. We deliberately
  * drop transient view state (search config, RSVP position, viewSettings,
- * etc.) — those are device-local UI preferences, not progress. The lone
- * exception is `referencePageCount`, which is book data wearing a view-setting
- * costume; it travels as its own envelope key (see RemoteBookConfig).
+ * etc.) — those are device-local UI preferences, not progress. Different
+ * devices have different screen sizes / DPI / typography needs: pushing a
+ * phone's 14pt setting onto a desktop would surprise users in a bad way,
+ * so font size and layout stay per-device. The lone exception is
+ * `referencePageCount`, which is book data wearing a view-setting costume;
+ * it travels as its own envelope key (see RemoteBookConfig).
  *
- * Why the rest of viewSettings stays local even though it lives in BookConfig:
- *   - Different devices have different screen sizes / DPI / typography
- *     preferences. Pushing a phone's 14pt setting onto a desktop would
- *     surprise users in a bad way.
- *   - readest's own cloud sync similarly carves out viewSettings from
- *     cross-device replication. Duplicating that policy here keeps the
- *     backends behaviourally aligned.
- *   - The trim list below is the SOURCE OF TRUTH for what travels —
- *     when adding a new BookConfig field, decide here whether it's a
- *     "reading state" (include) or a "device preference" (skip).
+ * The trim list below is the SOURCE OF TRUTH for what travels — when
+ * adding a new BookConfig field, decide here whether it's a "reading
+ * state" (include) or a "device preference" (skip).
  *
  * Anything not in `trimmed` therefore never reaches the server, and
  * conversely the config merge (see `mergeBookConfig` in merge.ts) only

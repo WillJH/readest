@@ -37,6 +37,27 @@ export const SYNC_BOOK_COVER_FILE = 'cover.png';
 // simply never look inside it.
 export const SYNC_BOOK_TTS_DIR = 'tts';
 
+// ── Account-level config artifacts (settings / vocabulary / stats / AI
+// chats / textures index / crypto salt registry). These are the kinds this
+// fork moved off the native replica channel onto the file channel; each is
+// a single root-level JSON document inside Readest/config/, synced with its
+// own merge policy. Like the book layout above, names are FROZEN wire
+// contract — renaming orphans every existing remote tree.
+export const SYNC_CONFIG_DIR = 'config';
+export const SYNC_CONFIG_SETTINGS_FILE = 'settings.json';
+export const SYNC_CONFIG_VOCABULARY_FILE = 'vocabulary.json';
+export const SYNC_CONFIG_STATS_FILE = 'stats.json';
+export const SYNC_CONFIG_CHATS_FILE = 'chats.json';
+export const SYNC_CONFIG_TEXTURES_FILE = 'textures.json';
+export const SYNC_CONFIG_KEYS_FILE = 'keys.json';
+
+// Binary trees for the file channel's non-book assets. Keyed by the
+// cross-device content id (md5(partialMD5|byteSize|filename)) so two
+// devices importing the same file converge on the same remote path —
+// the same idleness contract the replica binary layout provides.
+export const SYNC_TEXTURES_DIR = 'textures';
+export const SYNC_CHARACTERS_DIR = 'characters';
+
 /**
  * Normalise the user-entered rootPath so the rest of the code can rely on
  * a leading slash and no trailing slash (root = "/").
@@ -78,6 +99,46 @@ export const buildBookConfigPath = (rootPath: string, bookHash: string): string 
 /** Absolute path of the shared library.json index. */
 export const buildLibraryPath = (rootPath: string): string =>
   join(buildBasePath(rootPath), SYNC_LIBRARY_FILE);
+
+/** Absolute path of one JSON artifact inside Readest/config/. */
+export const buildConfigArtifactPath = (rootPath: string, filename: string): string =>
+  join(buildBasePath(rootPath), SYNC_CONFIG_DIR, filename);
+
+/** Absolute path of the settings artifact (Readest/config/settings.json). */
+export const buildSettingsPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_SETTINGS_FILE);
+
+/** Absolute path of the vocabulary artifact. */
+export const buildVocabularyPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_VOCABULARY_FILE);
+
+/** Absolute path of the reading-stats artifact. */
+export const buildStatsPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_STATS_FILE);
+
+/** Absolute path of the AI chat-history artifact. */
+export const buildChatsPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_CHATS_FILE);
+
+/** Absolute path of the texture index artifact. */
+export const buildTexturesIndexPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_TEXTURES_FILE);
+
+/** Absolute path of the crypto salt registry. */
+export const buildKeysPath = (rootPath: string): string =>
+  buildConfigArtifactPath(rootPath, SYNC_CONFIG_KEYS_FILE);
+
+/** Absolute path of one texture binary (Readest/textures/<contentId>/<filename>). */
+export const buildTextureBinaryPath = (rootPath: string, contentId: string, filename: string) =>
+  join(buildBasePath(rootPath), SYNC_TEXTURES_DIR, contentId, filename);
+
+/** Absolute path of one character-gallery binary (Readest/characters/<id>/<filename>). */
+export const buildCharacterBinaryPath = (rootPath: string, characterId: string, filename: string) =>
+  join(buildBasePath(rootPath), SYNC_CHARACTERS_DIR, characterId, filename);
+
+/** Absolute path of one character's binary directory (for GC deletes). */
+export const buildCharacterBinaryDirPath = (rootPath: string, characterId: string) =>
+  join(buildBasePath(rootPath), SYNC_CHARACTERS_DIR, characterId);
 
 /**
  * Friendly book file name "<sanitized title>.<ext>" used inside the

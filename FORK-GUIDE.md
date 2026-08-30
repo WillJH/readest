@@ -38,7 +38,7 @@
   ```
   历史背景:官方 deep-link 曾在用户桌面(Wayland+NVIDIA+浏览器组合)回跳丢失转圈 15 分钟(`spawn_fresh_browser` 冷浏览器回退是 Windows 专属);当时未深挖根因即转回环,埋下命名空间劈叉。
 - 回环授权机械(应急通道,保留可用,2026-08 实测全通):Rust 侧 `loopback_oauth.rs`(自写,单段捕获——直接读第一个 GET 的请求行拿 code/state,**不要用 tauri-plugin-oauth 的 `start_server`**,它靠返回页面里注入脚本的二次请求回传,浏览器不执行那脚本就永久卡死),随机 127.0.0.1 端口,授权码+PKCE,refresh token 自动续期。**四个连环坑**(全踩过):①新 Tauri 命令要三处同步登记——`generate_handler!`(入口)、`build.rs` AppManifest(ACL 清单)、`capabilities/default.json`(授权),漏一处 invoke 直接被拒;②**Desktop 型 Google client 自带 secret**,token 交换/刷新必须带(`NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_SECRET`;官方 iOS 型没有,上游代码默认不传;Google 明言桌面 secret 可嵌入,已用假码探测法验证);③应用内 reqwest **只认代理环境变量不读桌面代理**,浏览器(走代理)授权成功而换令牌直连被墙报 `error sending request`——`proxy_env.rs` 启动时自动采用(gsettings 手动代理 → 否则 CONNECT 探测 7897/7890),localhost 排除;④发行版无 devtools 且 webview console 不转发终端,排障靠把错误塞进 toast(`GoogleDriveForm` 的 catch)。配套:网页版设 `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`(Web 型 client,回调 `http://localhost:41790/gdrive-callback`;隐式 token 无刷新,每会话需重连)。env 值放 `apps/readest-app/.env.local`(gitignore 覆盖;next dev/build 自动读,改后 dev 重启、AppImage 重出;当前仅 web client 启用,回环三件套注释待命)。Google 同意屏幕记得**发布到生产**,否则 Testing 模式 refresh token 7 天过期。
-- 验证流水线:`npx tsc --noEmit`(须零错)+ `npx biome lint .`(零 warn)+ `pnpm vitest run`。**注意**:本容器全量 vitest 有 ~368 个预置环境性失败(supabase env 缺失类,干净 main 分支同样存在);判定标准是与基线的 FAIL 列表做 `comm -13` 差集(基线快照存于 /tmp/*-fails.txt,重开会话需重建:先在 main 跑一次全量记录基线,再对比)。涉及 supabase 导入链的新测试需 `vi.mock('@/utils/supabane'/'@/utils/access')`(仓库已有先例)。
+- 验证流水线:`npx tsc --noEmit`(须零错)+ `npx biome lint .`(零 warn)+ `pnpm vitest run`(2026-08-30 起全量绿:10522 过/0 败)。**曾经**全量有 ~546 个 FAIL 行的"预置环境性失败"(旧文档归因 supabase env,实际主因是 jsdom@28+vitest@4 下 `window.localStorage` 半初始化——getter 在、存储区没挂,凡经 localStorage 持久化的推送哈希/指纹全部静默失效);修复:`vitest.setup.ts` 末尾从带 http 源的临时 JSDOM 借一个真 `Storage` 兜底(普通对象过不了 `StorageEvent.storageArea` 的 WebIDL 转换,必须真实例)。另修三处上游测试欠账:replicaBootstrap/syncCategories 按 vocabulary 加入后的 7 适配器/12 类别更新断言;runLibrarySync 的付费墙测试改为断言 `CLOUD_SYNC_REQUIRES_PREMIUM=false` 的现状(free 计划不暂停)。
 - `pnpm-workspace.yaml` 注册了 `patches/@assistant-ui__react@0.11.58.patch`(修复库内 detached-call 崩溃,详见 §2.6)。
 
 ## 1. 分支拓扑(线性叠加,按时间)
@@ -106,6 +106,27 @@ main (upstream 0.12.6)
 
 ### 2.8 AI 配置备份
 - 设置→AI→Backup & Restore:导出单 JSON(连接[密钥可选]/角色[头像 base64 内嵌]/MCP/白名单 aiSettings);导入逐字段挑选校验(丢畸形记录/陌生设置键/超限图片)、按 id 幂等合并、头像写回 `Images/Characters/`。`services/ai/aiBackup.ts` + `__tests__/services/ai/aiBackup.test.ts`。
+
+- 设置→AI→Backup & Restore:导出单 JSON(连接[密钥可选]/角色[头像 base64 内嵌]/MCP/白名单 aiSettings);导入逐字段挑选校验(丢畸形记录/陌生设置键/超限图片)、按 id 幂等合并、头像写回 `Images/Characters/`。`services/ai/aiBackup.ts` + `__tests__/services/ai/aiBackup.test.ts`。
+
+### 2.9 同步迁移:账号级数据全部改走第三方文件通道(2026-08 定案)
+
+用户决策:除**字体、词典**继续用官方源(需登录,大文件走官方存储),其余账号级数据全部搬到 Google Drive 等第三方文件通道,彻底摆脱对官方账号的依赖。分工表:
+
+| 去向 | 内容 |
+|---|---|
+| 文件通道(原有) | 书文件、封面、进度、笔记、TTS 分包 |
+| 文件通道(新增) | 设置(含凭据+salt)、AI 全部配置与四级提示词、角色图库、OPDS/ABS、纹理背景、生词本、阅读统计、AI 聊天记录 |
+| 官方源(保留) | 字体、词典 |
+
+落地结构(feat/sync-migration):
+- **路由**:`services/sync/channelRouting.ts` 的 `FILE_EXCLUSIVE_CATEGORIES`(settings/texture/opds_catalog/abs_server/vocabulary/stats)——`isNativeSyncCategoryEnabled` 对这些类别恒 false,`replicaPublish`、`useReplicaPull`、`initSettingsSync` 全部改用它做门控,官方服务器永远收不到这些数据。
+- **布局**(冻结线格式,`file/layout.ts`):`Readest/config/{settings,vocabulary,stats,chats,textures,keys}.json` + `Readest/textures/<contentId>/` + `Readest/characters/<id>/`。
+- **工件实现**(`services/sync/file/`):`configWire.ts`(纯合并逻辑,状态式 CRDT)→ `settingsFileSync`(dot-path 逐字段 LWW,快照 diff 测变化)、`vocabularyFileSync`(saveWord 语义合并+墓碑)、`statsFileSync`(事件并集幂等)、`chatsFileSync`(会话 LWW+消息并集+墓碑)、`texturesFileSync`(索引 LWW+二进制 size-probe;含角色图库镜像)、`configCrypto.ts`(复用 AES-GCM envelope,盐仓挪到 keys.json,口令仍存 OS 钥匙串)。
+- **编排**:`runConfigSync.ts`(逐后端逐工件失败隔离,尊重 send/receive 策略)+ `useConfigFileSync`(库页+阅读器挂载;设置变更 10s 防抖 + 5min 兜底轮询)+ `ReadingStatsTracker`/`useBooksSync` 手动刷新接入。生词/聊天删除在 `vocabularyStore`/`aiChatStore` 记 localStorage 墓碑。
+- **凭据**:默认不同步(credentials 类别默认关);开启后 API key/MCP headers/OPDS/ABS 账密以 SecretSlot(信封+$json 判别)加密上云,盐在 keys.json(盐非机密)。口令未解锁→密文字段照旧本地保留、不上传。
+- **每书视图设置保持单机**(2026-08-30 复议后定案):字号/版式是设备偏好(手机 vs 桌面屏幕差异),不同步——曾短暂实现过 `RemoteBookConfig.viewSettings` 独立信封键,后按上游原策略撤回;`referencePageCount`(纸质版页数,书籍属性)仍照旧同步。合并侧对旧线上文档里遗留的 viewSettings 键直接忽略,本地排版不受污染。
+- 测试:`__tests__/services/sync/file/configWire.test.ts`(15 例);`replicaPublish`/`replicaSettingsSync` 测试 mock 掉 channelRouting 以继续测发磅机制本身。
 
 ## 3. 已知设计决策/坑
 
