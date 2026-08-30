@@ -10,6 +10,7 @@ import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
 import {
   getGoogleClientId,
   getGoogleLoopbackClientId,
+  getGoogleLoopbackClientSecret,
   getGoogleWebClientId,
 } from './buildGoogleDriveProvider';
 import { createDriveTokenPersistence } from './driveTokenStore';
@@ -99,6 +100,7 @@ export const runGoogleDriveConnect = async (): Promise<ConnectGoogleDriveResult>
   if (loopbackClientId && osTypeValue === 'linux') {
     return connectGoogleDrive({
       clientId: loopbackClientId,
+      clientSecret: getGoogleLoopbackClientSecret(),
       fetchFn: resolveFetch(),
       persistence,
       runOAuth: runDesktopLoopbackOAuth,

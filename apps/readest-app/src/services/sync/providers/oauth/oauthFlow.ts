@@ -25,6 +25,12 @@ import type { TokenSet } from './tokenEndpoint';
 export interface OAuthClientConfig {
   /** OAuth client ID registered for this app with the provider. */
   clientId: string;
+  /**
+   * Client secret, when the client type has one (Google "Desktop app" clients
+   * are issued one the token endpoint requires; the official iOS-type client
+   * has none). Sent only to the token endpoint, never in the auth URL.
+   */
+  clientSecret?: string;
   /** Space-delimited OAuth scopes to request (e.g. the Drive app-file scope). */
   scope: string;
   /** Authorization endpoint (the page where the user consents). */

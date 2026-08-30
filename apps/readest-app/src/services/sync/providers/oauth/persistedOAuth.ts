@@ -13,6 +13,8 @@ import type { TokenPersistence } from './keychainTokenStore';
 
 export interface PersistedOAuthDeps {
   clientId: string;
+  /** Client secret, when the client type has one (see tokenEndpoint's docs). */
+  clientSecret?: string;
   tokenEndpoint: string;
   fetchFn: FetchFn;
   persistence: TokenPersistence;
@@ -71,7 +73,12 @@ export class PersistedOAuth {
           );
         }
         const refreshed = await refreshAccessToken(
-          { refreshToken, clientId: this.deps.clientId, tokenEndpoint: this.deps.tokenEndpoint },
+          {
+            refreshToken,
+            clientId: this.deps.clientId,
+            clientSecret: this.deps.clientSecret,
+            tokenEndpoint: this.deps.tokenEndpoint,
+          },
           this.deps.fetchFn,
         );
         const merged: TokenSet = {

@@ -192,6 +192,7 @@ export const runDesktopLoopbackOAuth = async (
           code,
           verifier,
           clientId: config.clientId,
+          clientSecret: config.clientSecret,
           redirectUri: uri,
           tokenEndpoint: config.tokenEndpoint,
         },

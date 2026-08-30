@@ -20,10 +20,16 @@ export const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
  *
  * `access_type=offline` makes Google issue a refresh token; `prompt=consent`
  * forces re-consent so a refresh token is actually returned (Google only grants
- * one on first consent otherwise).
+ * one on first consent otherwise). `clientSecret` (BYO Desktop-type clients
+ * only) rides along for the token endpoint; it is never put in the auth URL.
  */
-export const buildGoogleOAuthConfig = (clientId: string, scope: string): OAuthClientConfig => ({
+export const buildGoogleOAuthConfig = (
+  clientId: string,
+  scope: string,
+  clientSecret?: string,
+): OAuthClientConfig => ({
   clientId,
+  clientSecret,
   scope,
   authEndpoint: GOOGLE_AUTH_ENDPOINT,
   tokenEndpoint: GOOGLE_TOKEN_ENDPOINT,

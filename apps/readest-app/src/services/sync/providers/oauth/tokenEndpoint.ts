@@ -33,6 +33,7 @@ const TOKEN_PARAM = {
   code: 'code',
   codeVerifier: 'code_verifier',
   clientId: 'client_id',
+  clientSecret: 'client_secret',
   redirectUri: 'redirect_uri',
   refreshToken: 'refresh_token',
 } as const;
@@ -87,6 +88,13 @@ export interface ExchangeCodeParams {
   verifier: string;
   /** OAuth client ID registered for this app with the provider. */
   clientId: string;
+  /**
+   * Client secret, when the client type has one. Google's "Desktop app"-type
+   * clients are issued a secret the token endpoint requires — Google treats it
+   * as embeddable (desktop apps cannot keep secrets), unlike a Web client's
+   * secret. Absent for the secretless iOS-type client (and Microsoft SPA).
+   */
+  clientSecret?: string;
   /** Redirect URI used in the authorization request; must match exactly. */
   redirectUri: string;
   /** Provider-specific token endpoint (Google / Microsoft). */
@@ -99,6 +107,8 @@ export interface RefreshTokenParams {
   refreshToken: string;
   /** OAuth client ID registered for this app with the provider. */
   clientId: string;
+  /** Client secret, when the client type has one (see {@link ExchangeCodeParams}). */
+  clientSecret?: string;
   /** Provider-specific token endpoint (Google / Microsoft). */
   tokenEndpoint: string;
 }
@@ -174,7 +184,7 @@ const requestTokens = async (
  * (Readest's client is the iOS application type, which has none).
  */
 export const exchangeCode = (
-  { code, verifier, clientId, redirectUri, tokenEndpoint }: ExchangeCodeParams,
+  { code, verifier, clientId, clientSecret, redirectUri, tokenEndpoint }: ExchangeCodeParams,
   fetchFn: FetchFn,
 ): Promise<TokenSet> => {
   const params = new URLSearchParams();
@@ -182,6 +192,7 @@ export const exchangeCode = (
   params.set(TOKEN_PARAM.code, code);
   params.set(TOKEN_PARAM.codeVerifier, verifier);
   params.set(TOKEN_PARAM.clientId, clientId);
+  if (clientSecret) params.set(TOKEN_PARAM.clientSecret, clientSecret);
   params.set(TOKEN_PARAM.redirectUri, redirectUri);
   return requestTokens(tokenEndpoint, params, 'exchange', fetchFn);
 };
@@ -192,12 +203,13 @@ export const exchangeCode = (
  * caller should keep the existing one when the response doesn't include one.
  */
 export const refreshAccessToken = (
-  { refreshToken, clientId, tokenEndpoint }: RefreshTokenParams,
+  { refreshToken, clientId, clientSecret, tokenEndpoint }: RefreshTokenParams,
   fetchFn: FetchFn,
 ): Promise<TokenSet> => {
   const params = new URLSearchParams();
   params.set(TOKEN_PARAM.grantType, GRANT_TYPE.refreshToken);
   params.set(TOKEN_PARAM.refreshToken, refreshToken);
   params.set(TOKEN_PARAM.clientId, clientId);
+  if (clientSecret) params.set(TOKEN_PARAM.clientSecret, clientSecret);
   return requestTokens(tokenEndpoint, params, 'refresh', fetchFn);
 };

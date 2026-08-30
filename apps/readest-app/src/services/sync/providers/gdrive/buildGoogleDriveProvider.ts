@@ -47,6 +47,16 @@ export const getGoogleLoopbackClientId = (): string | undefined =>
   process.env['NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_ID'] || undefined;
 
 /**
+ * The token-endpoint secret Google issues alongside Desktop-type clients
+ * (`NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_SECRET`). Google explicitly treats it
+ * as embeddable — desktop apps cannot keep secrets — so baking it next to the
+ * client id is the documented pattern. The token endpoint rejects the
+ * exchange AND every refresh without it.
+ */
+export const getGoogleLoopbackClientSecret = (): string | undefined =>
+  process.env['NEXT_PUBLIC_GOOGLE_LOOPBACK_CLIENT_SECRET'] || undefined;
+
+/**
  * The official Readest **Web-type** Google OAuth client id used by the browser
  * GIS flow (its authorized JavaScript origins are `web.readest.com` + the
  * localhost dev origin). Separate from the iOS-type

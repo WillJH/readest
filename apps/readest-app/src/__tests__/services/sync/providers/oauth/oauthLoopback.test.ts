@@ -13,6 +13,9 @@ const PORT = 53123;
 // runner must ignore them in favour of the ephemeral 127.0.0.1 redirect.
 const CONFIG: OAuthClientConfig = {
   clientId: CLIENT_ID,
+  // Desktop-type Google clients are issued a secret the token endpoint
+  // requires; the runner must forward it to the exchange.
+  clientSecret: 'GOCSPX-not-really-secret',
   scope: 'drive.file',
   authEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenEndpoint: 'https://oauth2.googleapis.com/token',
@@ -31,6 +34,7 @@ interface ExchangeCall {
   code: string;
   verifier: string;
   redirectUri: string;
+  clientSecret: string | null;
 }
 
 /** A fetch fake that records the token-exchange body params. */
@@ -41,6 +45,7 @@ const exchangeFetch = (calls: ExchangeCall[]) =>
       code: params.get('code') ?? '',
       verifier: params.get('code_verifier') ?? '',
       redirectUri: params.get('redirect_uri') ?? '',
+      clientSecret: params.get('client_secret'),
     });
     return tokenJson();
   }) as unknown as typeof fetch;
@@ -88,9 +93,16 @@ describe('runDesktopLoopbackOAuth', () => {
     expect(tokens.accessToken).toBe('AT');
     expect(tokens.refreshToken).toBe('RT');
     // The exchange must reuse the loopback redirect verbatim (PKCE requires
-    // an exact redirect_uri match) and the captured code.
-    expect(calls[0]).toMatchObject({ code: 'CODE', redirectUri: `http://127.0.0.1:${PORT}` });
+    // an exact redirect_uri match) and the captured code, and carry the
+    // Desktop-type client's token-endpoint secret.
+    expect(calls[0]).toMatchObject({
+      code: 'CODE',
+      redirectUri: `http://127.0.0.1:${PORT}`,
+      clientSecret: 'GOCSPX-not-really-secret',
+    });
     expect(calls[0]!.verifier).not.toBe('');
+    // The secret never leaks into the consent URL.
+    expect(consentUrl.searchParams.has('client_secret')).toBe(false);
   });
 
   test('ignores a redirect bound to a different loopback port', async () => {
