@@ -11,6 +11,8 @@ import type { DictionarySettings, ImportedDictionary } from '@/services/dictiona
 
 export type ThemeType = 'light' | 'dark' | 'auto';
 export type LibraryViewModeType = 'grid' | 'list';
+/** How saved vocabulary words are decorated in the book text. */
+export type VocabularyMarkStyle = 'off' | 'underline' | 'squiggly' | 'highlight';
 export const LibrarySortByType = {
   Title: 'title',
   Author: 'author',
@@ -430,6 +432,12 @@ export interface SystemSettings {
    * lookups are never auto-saved; the header button always saves manually.
    */
   autoAddVocabulary: boolean;
+  /**
+   * How saved vocabulary words are marked in the book text: not at all, or
+   * via the same overlay styles user annotations use. Inflected shapes
+   * (plurals, -ing, -ed) of a saved word are marked too.
+   */
+  vocabularyMarkStyle: VocabularyMarkStyle;
   discordRichPresenceEnabled: boolean;
   libraryViewMode: LibraryViewModeType;
   librarySortBy: LibrarySortByType;

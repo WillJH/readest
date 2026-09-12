@@ -6,6 +6,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import type { SystemSettings } from '@/types/settings';
 import { saveSysSettings, saveViewSettings } from '@/helpers/settings';
 import {
   getTranslatorDisplayLabel,
@@ -337,6 +338,29 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
           }
           data-setting-id='settings.language.autoAddVocabulary'
         />
+        <SettingsRow
+          label={_('Mark Saved Words in Text')}
+          description={_('Inflected forms of a saved word are marked too.')}
+          data-setting-id='settings.language.vocabularyMarkStyle'
+        >
+          <SettingsSelect
+            value={settings.vocabularyMarkStyle ?? 'squiggly'}
+            onChange={(e) =>
+              saveSysSettings(
+                envConfig,
+                'vocabularyMarkStyle',
+                e.target.value as SystemSettings['vocabularyMarkStyle'],
+              )
+            }
+            ariaLabel={_('Mark Saved Words in Text')}
+            options={[
+              { value: 'off', label: _('Off') },
+              { value: 'underline', label: _('Underline') },
+              { value: 'squiggly', label: _('Squiggly') },
+              { value: 'highlight', label: _('Highlight') },
+            ]}
+          />
+        </SettingsRow>
       </BoxedList>
 
       <BoxedList

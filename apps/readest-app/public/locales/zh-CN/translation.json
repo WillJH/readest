@@ -2346,5 +2346,8 @@
   "A connection is required — create one in Manage Connections first.": "必须选择连接——请先到管理连接里创建。",
   "The model this character chats through.": "该角色对话所用的模型。",
   "No available connection. Create one in Settings → AI → Manage Connections": "尚无可用连接。请到 设置 → AI → 管理连接 创建。",
-  "e.g. nomic-embed-text": "例如 nomic-embed-text"
+  "e.g. nomic-embed-text": "例如 nomic-embed-text",
+  "Mark Saved Words in Text": "在正文中标记生词",
+  "Inflected forms of a saved word are marked too.": "生词的复数、-ing、-ed 等变形也会被标记。",
+  "Encountered forms": "遇到形态"
 }

@@ -9,6 +9,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { VocabularyDb, type VocabularySourceBook } from '@/services/vocabulary/vocabularyDb';
+import { warmWordAudio } from '@/services/tts/wordPronouncer';
 import EmptyState from '../EmptyState';
 import VocabularyDetailDialog from '../VocabularyDetailDialog';
 
@@ -145,10 +146,17 @@ const VocabularyView: React.FC = () => {
                 )}
                 tabIndex={0}
                 role='button'
-                onClick={() => setDetailWordId(word.id)}
+                onClick={() => {
+                  // Unlock the audio context inside this click gesture: the
+                  // detail dialog auto-pronounces once its word loads (after
+                  // an async db read), outside any user-gesture window.
+                  warmWordAudio();
+                  setDetailWordId(word.id);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
+                    warmWordAudio();
                     setDetailWordId(word.id);
                   }
                 }}

@@ -46,6 +46,13 @@ import { applyScrollableStyle, applyTableTouchScroll } from '@/utils/scrollable'
 import { mountAdditionalFonts, mountCustomFont } from '@/styles/fonts';
 import { layoutWarichu, relayoutWarichu } from '@/utils/warichu';
 import { refreshSectionGlosses } from '@/app/reader/utils/wordlensSection';
+import {
+  buildVocabularyMarkMatcher,
+  refreshSectionVocabularyMarks,
+  type OverlayerLike,
+  type VocabularyMarkMatcher,
+} from '@/app/reader/utils/vocabularyMarks';
+import { useVocabularyStore } from '@/store/vocabularyStore';
 import { getBookDirFromLanguage, getBookDirFromWritingMode } from '@/utils/book';
 import { getIndexFromCfi } from '@/utils/cfi';
 import { useUICSS } from '@/hooks/useUICSS';
@@ -140,6 +147,9 @@ const FoliateViewer: React.FC<{
   const viewSettings = getViewSettings(bookKey);
 
   const viewRef = useRef<FoliateView | null>(null);
+  // Vocabulary in-text marks: rebuilt whenever the vocabulary list changes;
+  // consumed by the stabilized handler and the marks effects below.
+  const vocabularyMatcherRef = useRef<VocabularyMarkMatcher | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isViewCreated = useRef(false);
   const doubleClickDisabled = useRef(!!viewSettings?.disableDoubleClick);
@@ -546,13 +556,16 @@ const FoliateViewer: React.FC<{
   const stabilizedHandler = useCallback(() => {
     setLoading(false);
     // Layout/relayout warichu after paginator has set column-width via columnize()
-    const contents = viewRef.current?.renderer?.getContents?.() || [];
+    const contents = (viewRef.current?.renderer?.getContents?.() || []) as Array<{
+      doc?: Document;
+      overlayer?: OverlayerLike;
+    }>;
     const vs = getViewSettings(bookKey);
     const bookLang = getBookData(bookKey)?.book?.primaryLanguage;
     // Fixed-layout (pre-paginated) books have no reflow room; injecting ruby
     // would overflow their fixed boxes, so skip Word Lens glosses there.
     const isFixedLayout = bookDoc.rendition?.layout === 'pre-paginated';
-    for (const { doc } of contents) {
+    for (const { doc, overlayer } of contents) {
       if (doc) {
         const hasPending = doc.querySelectorAll('.warichu-pending').length > 0;
         const hasExisting = doc.querySelectorAll('.warichu-head').length > 0;
@@ -563,6 +576,15 @@ const FoliateViewer: React.FC<{
         }
         if (vs && appService && !isFixedLayout) {
           void refreshSectionGlosses(doc, vs, buildWordLensCtx(bookLang));
+        }
+        if (!isFixedLayout && overlayer) {
+          refreshSectionVocabularyMarks(
+            doc,
+            overlayer,
+            vocabularyMatcherRef.current,
+            useSettingsStore.getState().settings?.vocabularyMarkStyle ?? 'squiggly',
+            { isDarkMode: useThemeStore.getState().isDarkMode },
+          );
         }
       }
     }
@@ -1006,6 +1028,53 @@ const FoliateViewer: React.FC<{
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewSettings?.wordLensEnabled, viewSettings?.wordLensLevel, viewSettings?.wordLensHintLang]);
+
+  // ── Vocabulary in-text marks ────────────────────────────────────────────
+  // The matcher rebuilds whenever the vocabulary list changes (capture,
+  // delete, sync apply); marks refresh on `stabilized` (layout) and here.
+  const refreshVocabularyMarks = useCallback(() => {
+    if (bookDoc.rendition?.layout === 'pre-paginated') return;
+    const contents = (viewRef.current?.renderer?.getContents?.() || []) as Array<{
+      doc?: Document;
+      overlayer?: OverlayerLike;
+    }>;
+    const style = useSettingsStore.getState().settings?.vocabularyMarkStyle ?? 'squiggly';
+    const { isDarkMode: dark } = useThemeStore.getState();
+    for (const { doc, overlayer } of contents) {
+      if (doc && overlayer) {
+        refreshSectionVocabularyMarks(doc, overlayer, vocabularyMatcherRef.current, style, {
+          isDarkMode: dark,
+        });
+      }
+    }
+  }, [bookDoc.rendition?.layout]);
+
+  // Load the word list once marking is enabled, then track every change.
+  useEffect(() => {
+    const style = settings?.vocabularyMarkStyle ?? 'squiggly';
+    const vocab = useVocabularyStore.getState();
+    if (style !== 'off' && appService && !vocab.isLoaded) {
+      void vocab.loadWords(appService);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.vocabularyMarkStyle, appService]);
+
+  useEffect(() => {
+    const rebuild = () => {
+      vocabularyMatcherRef.current = buildVocabularyMarkMatcher(
+        useVocabularyStore.getState().words,
+      );
+      refreshVocabularyMarks();
+    };
+    rebuild();
+    const unsubscribe = useVocabularyStore.subscribe(rebuild);
+    return unsubscribe;
+  }, [refreshVocabularyMarks]);
+
+  useEffect(() => {
+    refreshVocabularyMarks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.vocabularyMarkStyle]);
 
   useEffect(() => {
     const mountCustomFonts = async () => {

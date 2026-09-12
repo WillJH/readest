@@ -26,6 +26,9 @@ import { invokeSystemDictionary } from '@/services/dictionaries/systemDictionary
 import { VocabularyDb } from '@/services/vocabulary/vocabularyDb';
 import { extractSentenceFromRange } from '@/services/vocabulary/sentence';
 import { publishVocabularyUpsert } from '@/services/vocabulary/vocabularySync';
+import { VOCAB_MARK_PREFIX, wordKeyFromMarkValue } from '@/app/reader/utils/vocabularyMarks';
+import { warmWordAudio } from '@/services/tts/wordPronouncer';
+import VocabularyDetailDialog from '../VocabularyDetailDialog';
 import type { DefinitionSnapshot } from '@/types/vocabulary';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -176,6 +179,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
   const [translationEpoch, setTranslationEpoch] = useState(0);
   const [showAnnotPopup, setShowAnnotPopup] = useState(false);
   const [showDictionaryPopup, setShowDictionaryPopup] = useState(false);
+  // Opened by tapping a vocabulary mark in the text (overlayer 'vocab:' keys).
+  const [vocabDetailWordId, setVocabDetailWordId] = useState<string | null>(null);
   const [showDeepLPopup, setShowDeepLPopup] = useState(false);
   const [showProofreadPopup, setShowProofreadPopup] = useState(false);
   const [trianglePosition, setTrianglePosition] = useState<Position>();
@@ -631,6 +636,27 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
   const onShowAnnotation = (event: Event) => {
     const detail = (event as CustomEvent).detail;
     const { value, index, range } = detail;
+    // A tap on a vocabulary mark opens the word's detail dialog (definitions,
+    // contexts, jump-to-source) — the mark itself is not an annotation.
+    if (typeof value === 'string' && value.startsWith(VOCAB_MARK_PREFIX)) {
+      const wordKey = wordKeyFromMarkValue(value);
+      if (wordKey) {
+        // Unlock the audio context while still inside this click gesture —
+        // the dialog auto-pronounces once its word loads, after several
+        // awaits, and a context first touched there is rejected by autoplay
+        // policy on WebKit (only the Edge path needs it).
+        warmWordAudio();
+        void (async () => {
+          const store = useVocabularyStore.getState();
+          if (!store.isLoaded && appService) await store.loadWords(appService);
+          const id = useVocabularyStore
+            .getState()
+            .words.find((w) => w.word.trim().toLowerCase() === wordKey)?.id;
+          if (id) setVocabDetailWordId(id);
+        })();
+      }
+      return;
+    }
     const { booknotes = [] } = getConfig(bookKey)!;
     const isNote = value.startsWith(NOTE_PREFIX);
     const rawValue = isNote ? value.replace(NOTE_PREFIX, '') : value;
@@ -1551,11 +1577,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
   // word is the current text selection, the sentence + CFI it appeared in.
   // `auto` is the silent capture of the popup's initial lookup — gated on the
   // settings toggle and never toasts. Manual saves confirm via toast.
+  // `headword` is the lemma candidate the lookup resolved through; saveWord
+  // canonicalizes the entry (`running` → `run`) and records the surface form.
   const handleVocabularyCapture = useCallback(
     async (
       word: string,
       definitions: DefinitionSnapshot[],
-      { auto }: { auto: boolean },
+      { auto, headword }: { auto: boolean; headword?: string | null },
     ): Promise<boolean> => {
       const trimmed = word.trim();
       if (!trimmed) return false;
@@ -1583,7 +1611,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
         const langRaw = bookData.bookDoc?.metadata.language;
         const lang = (Array.isArray(langRaw) ? langRaw[0] : langRaw) ?? null;
         const vocab = await VocabularyDb.open(appService);
-        const saved = await vocab.saveWord({ word: trimmed, lang, definitions, context });
+        const saved = await vocab.saveWord({
+          word: trimmed,
+          lang,
+          definitions,
+          context,
+          headword: headword ?? null,
+        });
         publishVocabularyUpsert(saved);
         void useVocabularyStore.getState().refreshIfLoaded();
         if (!auto) {
@@ -2369,6 +2403,12 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
           booknoteGroups={exportData.booknoteGroups}
           onCancel={handleCancelExport}
           onExport={handleConfirmExport}
+        />
+      )}
+      {vocabDetailWordId && (
+        <VocabularyDetailDialog
+          wordId={vocabDetailWordId}
+          onClose={() => setVocabDetailWordId(null)}
         />
       )}
       {showImportDialog && (

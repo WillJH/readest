@@ -131,6 +131,151 @@ describe('VocabularyDb.saveWord', () => {
   });
 });
 
+describe('VocabularyDb.saveWord canonicalization', () => {
+  let vocab: VocabularyDb;
+  beforeEach(async () => {
+    vocab = await freshVocabDb();
+  });
+
+  it('saves the base form and records the surface form', async () => {
+    const saved = await vocab.saveWord({
+      word: 'cats',
+      lang: 'en',
+      definitions: DEFS_A,
+      context: CTX_BOOK1,
+    });
+    expect(saved.word).toBe('cat');
+    expect(saved.surfaceForms).toEqual(['cats']);
+  });
+
+  it('uses the dictionary headword to resolve unknown bases', async () => {
+    const saved = await vocab.saveWord({
+      word: 'went',
+      lang: 'en',
+      definitions: DEFS_A,
+      context: null,
+      headword: 'go',
+    });
+    expect(saved.word).toBe('go');
+    expect(saved.surfaceForms).toEqual(['went']);
+  });
+
+  it('merges an inflected save into the existing canonical entry', async () => {
+    await vocab.saveWord({ word: 'run', lang: 'en', definitions: DEFS_A, context: CTX_BOOK1 });
+    const merged = await vocab.saveWord({
+      word: 'running',
+      lang: 'en',
+      definitions: [],
+      context: CTX_BOOK2,
+    });
+    const all = await vocab.listWords();
+    expect(all).toHaveLength(1);
+    expect(all[0]!.word).toBe('run');
+    expect(all[0]!.surfaceForms).toContain('running');
+    expect(merged.contexts).toHaveLength(2);
+  });
+
+  it('unions surface forms across repeated inflected saves', async () => {
+    await vocab.saveWord({ word: 'running', lang: 'en', definitions: DEFS_A, context: null });
+    await vocab.saveWord({ word: 'ran', lang: 'en', definitions: [], context: null });
+    await vocab.saveWord({ word: 'runs', lang: 'en', definitions: [], context: null });
+    const detail = await vocab.getWord((await vocab.listWords())[0]!.id);
+    expect(detail?.word).toBe('run');
+    expect(detail?.surfaceForms.sort()).toEqual(['ran', 'running', 'runs']);
+  });
+
+  it('keeps lexicalized forms and non-English words as-is', async () => {
+    const tired = await vocab.saveWord({
+      word: 'tired',
+      lang: 'en',
+      definitions: DEFS_A,
+      context: null,
+    });
+    expect(tired.word).toBe('tired');
+    expect(tired.surfaceForms).toEqual([]);
+    const fr = await vocab.saveWord({
+      word: 'chats',
+      lang: 'fr',
+      definitions: DEFS_A,
+      context: null,
+    });
+    expect(fr.word).toBe('chats');
+  });
+});
+
+describe('VocabularyDb legacy normalization', () => {
+  it('merges legacy inflected rows into their canonical entries once', async () => {
+    const db: DatabaseService = await NodeDatabaseService.open(':memory:');
+    await migrate(db, getMigrations('vocabulary'));
+    const now = Date.now();
+    // Legacy rows exactly as the pre-canonicalization schema stored them.
+    await db.execute(
+      `INSERT INTO vocabulary (id, word, word_key, lang, definitions, primary_index, surface_forms, last_book_title, created_at, updated_at)
+       VALUES ('id-run', 'run', 'run', 'en', ?, 0, '[]', 'Book One', ?, ?)`,
+      [JSON.stringify(DEFS_B), now - 3000, now - 3000],
+    );
+    await db.execute(
+      `INSERT INTO vocabulary (id, word, word_key, lang, definitions, primary_index, surface_forms, last_book_title, created_at, updated_at)
+       VALUES ('id-running', 'running', 'running', 'en', ?, 0, '[]', 'Book Two', ?, ?)`,
+      [JSON.stringify(DEFS_A), now - 2000, now - 1000],
+    );
+    await db.execute(
+      `INSERT INTO vocabulary_contexts (id, word_id, book_hash, book_title, cfi, sentence, created_at)
+       VALUES ('ctx-1', 'id-running', 'hash2', 'Book Two', 'epubcfi(/6/6!/4/2)', 'He was running late.', ?)`,
+      [now - 2000],
+    );
+    await db.execute(
+      `INSERT INTO vocabulary_contexts (id, word_id, book_hash, book_title, cfi, sentence, created_at)
+       VALUES ('ctx-2', 'id-run', 'hash1', 'Book One', 'epubcfi(/6/4!/4/10)', 'She had to run.', ?)`,
+      [now - 3000],
+    );
+
+    const fakeAppService = {
+      openDatabase: async () => db,
+    } as unknown as Parameters<typeof VocabularyDb.open>[0];
+    const vocab = await VocabularyDb.open(fakeAppService);
+    try {
+      const all = await vocab.listWords();
+      expect(all).toHaveLength(1);
+      expect(all[0]!.word).toBe('run');
+      expect(all[0]!.surfaceForms).toContain('running');
+      // Target had definitions, so its snapshot wins; contexts unioned.
+      expect(all[0]!.definitions).toEqual(DEFS_B);
+      expect(all[0]!.contextCount).toBe(2);
+      // A canonical word with no definitions adopts the merged row's snapshot
+      // when re-saved — covered by saveWord tests; here verify idempotency:
+      // reopening runs no further passes (flag set) and the state survives.
+      const again = await VocabularyDb.open(fakeAppService);
+      expect(await again.listWords()).toHaveLength(1);
+    } finally {
+      await vocab.close();
+    }
+  });
+
+  it('renames a legacy row when no canonical target exists', async () => {
+    const db: DatabaseService = await NodeDatabaseService.open(':memory:');
+    await migrate(db, getMigrations('vocabulary'));
+    const now = Date.now();
+    await db.execute(
+      `INSERT INTO vocabulary (id, word, word_key, lang, definitions, primary_index, surface_forms, last_book_title, created_at, updated_at)
+       VALUES ('id-cats', 'cats', 'cats', 'en', ?, 0, '[]', NULL, ?, ?)`,
+      [JSON.stringify(DEFS_A), now, now],
+    );
+    const fakeAppService = {
+      openDatabase: async () => db,
+    } as unknown as Parameters<typeof VocabularyDb.open>[0];
+    const vocab = await VocabularyDb.open(fakeAppService);
+    try {
+      const all = await vocab.listWords();
+      expect(all).toHaveLength(1);
+      expect(all[0]!.word).toBe('cat');
+      expect(all[0]!.surfaceForms).toEqual(['cats']);
+    } finally {
+      await vocab.close();
+    }
+  });
+});
+
 describe('VocabularyDb list/filter/search', () => {
   let vocab: VocabularyDb;
   beforeEach(async () => {

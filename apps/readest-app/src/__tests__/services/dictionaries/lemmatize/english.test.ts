@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { lemmatizeEnglish } from '@/services/dictionaries/lemmatize/english';
+import {
+  hasInflectionSuffix,
+  inflectionCandidates,
+  isLexicalizedForm,
+  lemmatizeEnglish,
+} from '@/services/dictionaries/lemmatize/english';
 
 describe('lemmatizeEnglish', () => {
   describe('irregular forms (issue test cases)', () => {
@@ -99,5 +104,39 @@ describe('lemmatizeEnglish', () => {
       expect(lemmatizeEnglish('cat')).not.toContain('cat');
       expect(lemmatizeEnglish('best')).not.toContain('b');
     });
+  });
+});
+
+describe('inflectionCandidates (restricted, ordered)', () => {
+  it('orders candidates by rule priority', () => {
+    expect(inflectionCandidates('running')).toEqual(['run']);
+    expect(inflectionCandidates('hoping')).toEqual(['hope', 'hop']);
+    expect(inflectionCandidates('translating')).toEqual(['translat', 'translate']);
+    expect(inflectionCandidates('went')).toEqual(['go']);
+  });
+
+  it('produces no candidates for bare words', () => {
+    expect(inflectionCandidates('run')).toEqual([]);
+    expect(inflectionCandidates('butter')).toEqual([]);
+    expect(inflectionCandidates('gas')).toEqual([]);
+  });
+});
+
+describe('hasInflectionSuffix', () => {
+  it('pre-filters tokens cheaply for text scanning', () => {
+    expect(hasInflectionSuffix('running')).toBe(true);
+    expect(hasInflectionSuffix('cats')).toBe(true);
+    expect(hasInflectionSuffix('walked')).toBe(true);
+    expect(hasInflectionSuffix('run')).toBe(false);
+    expect(hasInflectionSuffix('butter')).toBe(false);
+  });
+});
+
+describe('isLexicalizedForm', () => {
+  it('flags inflected-looking standalone words', () => {
+    expect(isLexicalizedForm('tired')).toBe(true);
+    expect(isLexicalizedForm('interesting')).toBe(true);
+    expect(isLexicalizedForm('news')).toBe(true);
+    expect(isLexicalizedForm('cats')).toBe(false);
   });
 });

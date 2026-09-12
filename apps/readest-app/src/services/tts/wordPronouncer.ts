@@ -14,9 +14,12 @@ import type { TTSAudioContext } from './WebAudioPlayer';
 // TTSController, this never runs EdgeTTSClient.init() (which wastes a round
 // trip synthesizing "test") and never spins up a full speaking session — it
 // calls EdgeSpeechTTS directly (whose static MP3 cache makes repeat words
-// instant) and schedules one chunk on a dedicated Web Audio context. Edge is
-// tried first while online (wss, then the authenticated https proxy); offline
-// requests and Edge failures use the platform speech client. See issue #4876.
+// instant) and schedules one chunk on a dedicated Web Audio context. The
+// reader's remembered engine choice is honoured: a native/web-speech
+// preferred client (set when the user picked a voice from that engine in the
+// read-aloud voice picker) goes straight to that engine and its preferred
+// voice, mirroring what read-aloud would use. Callers pass the reader's rate
+// for full parity. See issue #4876.
 
 const EDGE_TTS_NAME = 'edge-tts';
 const DEFAULT_EDGE_VOICE = 'en-US-AriaNeural';
@@ -25,7 +28,19 @@ export type PronounceStatus = 'playing' | 'ended' | 'error';
 
 export interface PronounceWordOptions {
   appService?: AppService | null;
+  /** Speech rate in the reader's scale (viewSettings.ttsRate); each engine
+   * applies it the same way read-aloud does. Defaults to 1.0. */
+  rate?: number;
 }
+
+// The engine the reader would use: when the user picked a voice from the
+// native/web engine in the read-aloud voice picker, TTSController remembered
+// that engine as the preferred client — pronounce with the same one (and its
+// preferred voice) instead of letting Edge win.
+const prefersPlatformClient = (): boolean => {
+  const preferred = TTSUtils.getPreferredClient();
+  return preferred === 'native-tts' || preferred === 'web-speech';
+};
 
 // Choose an Edge voice for a language: the user's preferred Edge voice for that
 // language (as picked in TTS settings) when it exists, else the first voice
@@ -106,10 +121,17 @@ const speakViaFallback = async (
   emit: (status: PronounceStatus) => void,
 ): Promise<void> => {
   // Web Speech is the reader's built-in engine on desktop/web; on the mobile
-  // app the native TTS plugin is what actually produces audio.
-  const client: TTSClient = options.appService?.isMobile
-    ? new NativeTTSClient()
-    : new WebSpeechClient();
+  // app the native TTS plugin is what actually produces audio. An explicit
+  // reader preference for one of them (see prefersPlatformClient) pins it.
+  const preferred = TTSUtils.getPreferredClient();
+  const client: TTSClient =
+    preferred === 'native-tts'
+      ? new NativeTTSClient()
+      : preferred === 'web-speech'
+        ? new WebSpeechClient()
+        : options.appService?.isMobile
+          ? new NativeTTSClient()
+          : new WebSpeechClient();
   fallbackClient = client;
   const controller = new AbortController();
   fallbackAbort = controller;
@@ -120,6 +142,7 @@ const speakViaFallback = async (
       return;
     }
     client.setPrimaryLang(lang);
+    if (options.rate != null) await client.setRate(options.rate);
     emit('playing');
     for await (const ev of client.speak(genSSMLRaw(word), controller.signal)) {
       if (ev.code === 'error') {
@@ -161,14 +184,14 @@ export const pronounceWord = async (
 
   const player = getPlayer();
   const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-  if (player && !isOffline) {
+  if (player && !isOffline && !prefersPlatformClient()) {
     try {
       const voice = pickEdgeVoiceId(voiceLang);
       const data = await fetchEdgeAudio({
         lang: voiceLang,
         text: trimmed,
         voice,
-        rate: 1.0,
+        rate: options.rate ?? 1.0,
         pitch: 1.0,
       });
       if (token !== requestToken) return;

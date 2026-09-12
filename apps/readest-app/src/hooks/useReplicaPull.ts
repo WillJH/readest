@@ -338,6 +338,7 @@ const vocabularyPullConfig = (
           word: local.word,
           wordKey: local.word.trim().toLowerCase(),
           lang: local.lang,
+          surfaceForms: local.surfaceForms,
           definitions: local.definitions,
           primaryIndex: local.primaryIndex,
           lastBookTitle: local.lastBookTitle,

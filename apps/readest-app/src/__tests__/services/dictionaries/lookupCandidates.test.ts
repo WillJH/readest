@@ -32,21 +32,42 @@ describe('buildLookupCandidates', () => {
   });
 
   describe('lemmatization fallback', () => {
-    it('appends lemma candidates after the exact/case variants', () => {
-      const candidates = buildLookupCandidates('ran', 'en');
-      expect(candidates[0]).toBe('ran'); // exact selection tried first
-      expect(candidates).toContain('run');
-      expect(candidates.indexOf('run')).toBeGreaterThan(candidates.indexOf('ran'));
+    it('resolves the base form of an inflected selection ahead of its stub entry', () => {
+      // Wiktionary-style dictionaries keep "plural of cat" / "past tense of
+      // go" stub entries; the base candidate must be tried before the
+      // surface form so the real entry wins.
+      expect(buildLookupCandidates('cats', 'en')[0]).toBe('cat');
+      expect(buildLookupCandidates('ran', 'en')[0]).toBe('run');
+      expect(buildLookupCandidates('running', 'en')[0]).toBe('run');
+      expect(buildLookupCandidates('stopped', 'en')[0]).toBe('stop');
+      expect(buildLookupCandidates('Mice', 'en')[0]).toBe('mouse');
+      expect(buildLookupCandidates('cities', 'en')[0]).toBe('city');
     });
 
-    it('keeps every exact/case variant ahead of any lemma', () => {
-      const candidates = buildLookupCandidates('Mice', 'en');
-      const lastCaseVariant = Math.max(
-        candidates.indexOf('Mice'),
-        candidates.indexOf('mice'),
-        candidates.indexOf('MICE'),
-      );
-      expect(candidates.indexOf('mouse')).toBeGreaterThan(lastCaseVariant);
+    it('orders e-restoring guesses before the raw stem', () => {
+      expect(buildLookupCandidates('hoping', 'en').slice(0, 2)).toEqual(['hope', 'hop']);
+      expect(buildLookupCandidates('translating', 'en').slice(0, 2)).toEqual([
+        'translat',
+        'translate',
+      ]);
+    });
+
+    it('guesses bases for long-tail words the frequency list does not know', () => {
+      expect(buildLookupCandidates('chattering', 'en')[0]).toBe('chatter');
+    });
+
+    it('keeps lexicalized forms surface-first', () => {
+      expect(buildLookupCandidates('interesting', 'en')[0]).toBe('interesting');
+      expect(buildLookupCandidates('tired', 'en')[0]).toBe('tired');
+      expect(buildLookupCandidates('news', 'en')[0]).toBe('news');
+      expect(buildLookupCandidates('sometimes', 'en')[0]).toBe('sometimes');
+    });
+
+    it('still carries the surface and lemma variants behind the base forms', () => {
+      const candidates = buildLookupCandidates('ran', 'en');
+      expect(candidates[0]).toBe('run');
+      expect(candidates).toContain('ran');
+      expect(candidates.indexOf('ran')).toBeGreaterThan(0);
     });
 
     it('resolves the issue test cases to their expected lemma', () => {

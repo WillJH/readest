@@ -2204,5 +2204,8 @@
   "Notebook draft copied to clipboard": "筆記本草稿已複製到剪貼板",
   "With notes": "含筆記",
   "{{count}} Annotations_other": "{{count}} 則註解",
-  "Insert into Notebook": "插入到筆記本"
+  "Insert into Notebook": "插入到筆記本",
+  "Mark Saved Words in Text": "在內文中標記生詞",
+  "Inflected forms of a saved word are marked too.": "生詞的複數、-ing、-ed 等變形也會被標記。",
+  "Encountered forms": "遇到形態"
 }

@@ -197,6 +197,7 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   autoImportBooksOnOpen: false,
   telemetryEnabled: true,
   autoAddVocabulary: true,
+  vocabularyMarkStyle: 'squiggly',
   discordRichPresenceEnabled: false,
   libraryViewMode: 'grid',
   librarySortBy: LibrarySortByType.Updated,

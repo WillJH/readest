@@ -63,7 +63,11 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
     try {
       lastAppService = appService;
       const db = await VocabularyDb.open(appService);
-      const words = await db.listWords();
+      // The store is the source of truth for the notebook list AND for
+      // in-text marking + mark clicks — a silent cap would both hide words
+      // from the list and leave them unmarked, so load generously rather
+      // than stopping at listWords' 200 default.
+      const words = await db.listWords({ limit: 5000 });
       set({ words, isLoaded: true });
     } catch (err) {
       console.warn('Failed to load vocabulary words:', err);
@@ -104,10 +108,17 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
       lang: record.lang,
       definitions: record.definitions,
       context: contexts[0] ?? null,
+      surfaceForms: record.surfaceForms,
     });
     // saveWord merges one context per call; fold in the rest.
     for (const context of contexts.slice(1)) {
-      await db.saveWord({ word: record.word, lang: record.lang, definitions: [], context });
+      await db.saveWord({
+        word: record.word,
+        lang: record.lang,
+        definitions: [],
+        context,
+        surfaceForms: record.surfaceForms,
+      });
     }
     if (record.primaryIndex !== detail.primaryIndex) {
       await db.setPrimaryDefinition(detail.id, record.primaryIndex);

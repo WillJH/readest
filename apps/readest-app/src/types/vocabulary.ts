@@ -34,6 +34,12 @@ export interface VocabularyWord {
   lang: string | null;
   definitions: DefinitionSnapshot[];
   primaryIndex: number;
+  /**
+   * Inflected surface forms this entry was actually captured from, e.g.
+   * ["running", "ran"] under the canonical entry "run". Empty when the word
+   * was saved in its canonical shape (or before the surface-forms migration).
+   */
+  surfaceForms: string[];
   /** Title of the book the word was most recently captured from. */
   lastBookTitle: string | null;
   /** Distinct book hashes the word was captured from (for list filtering). */
@@ -61,6 +67,18 @@ export interface SaveVocabularyInput {
   /** Empty array keeps the previous snapshot (re-lookup with no results). */
   definitions: DefinitionSnapshot[];
   context: SaveVocabularyContext | null;
+  /**
+   * Headword the dictionary lookup actually resolved through (e.g. an MDict
+   * `@@@LINK=go` redirect for `went`). Used to arbitrate canonicalization;
+   * ignored when it isn't a valid base-form candidate of `word`.
+   */
+  headword?: string | null;
+  /**
+   * Inflected forms to record on the entry as encountered surfaces — the
+   * capture path passes the original selection, the sync-apply paths pass the
+   * remote entry's full surface list.
+   */
+  surfaceForms?: string[];
 }
 
 export interface ListVocabularyOptions {

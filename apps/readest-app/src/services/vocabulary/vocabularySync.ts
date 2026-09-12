@@ -27,6 +27,8 @@ export interface VocabularyReplicaRecord extends ReplicaLocalRecord {
   word: string;
   wordKey: string;
   lang: string | null;
+  /** Inflected surface forms encountered under the canonical entry. */
+  surfaceForms: string[];
   definitions: SaveVocabularyInput['definitions'];
   primaryIndex: number;
   lastBookTitle: string | null;
@@ -41,6 +43,7 @@ function detailToRecord(detail: VocabularyWordDetail): VocabularyReplicaRecord {
     word: detail.word,
     wordKey: detail.word.trim().toLowerCase(),
     lang: detail.lang,
+    surfaceForms: detail.surfaceForms,
     definitions: detail.definitions,
     primaryIndex: detail.primaryIndex,
     lastBookTitle: detail.lastBookTitle,
@@ -78,6 +81,7 @@ export const vocabularyAdapter: ReplicaAdapter<VocabularyReplicaRecord> = {
       word: record.word,
       wordKey: record.wordKey,
       lang: record.lang,
+      surfaceForms: record.surfaceForms,
       definitions: record.definitions,
       primaryIndex: record.primaryIndex,
       lastBookTitle: record.lastBookTitle,
@@ -94,6 +98,9 @@ export const vocabularyAdapter: ReplicaAdapter<VocabularyReplicaRecord> = {
       word: word,
       wordKey: String(fields['wordKey'] ?? word.trim().toLowerCase()),
       lang: fields['lang'] === null || fields['lang'] === undefined ? null : String(fields['lang']),
+      surfaceForms: Array.isArray(fields['surfaceForms'])
+        ? (fields['surfaceForms'] as string[]).filter((f) => typeof f === 'string')
+        : [],
       definitions: Array.isArray(fields['definitions'])
         ? (fields['definitions'] as SaveVocabularyInput['definitions'])
         : [],
@@ -120,6 +127,7 @@ export const vocabularyAdapter: ReplicaAdapter<VocabularyReplicaRecord> = {
       word,
       wordKey: unwrap(fields['wordKey']),
       lang: unwrap(fields['lang']),
+      surfaceForms: unwrap(fields['surfaceForms']),
       definitions: unwrap(fields['definitions']),
       primaryIndex: unwrap(fields['primaryIndex']),
       lastBookTitle: unwrap(fields['lastBookTitle']),

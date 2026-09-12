@@ -331,6 +331,22 @@ const migrations: Record<SchemaType, MigrationEntry[]> = {
         ON vocabulary_contexts (book_hash);
       `,
     },
+    {
+      // Surface forms: the inflected shapes actually met in the text
+      // ("running"/"ran" under the canonical entry "run"), so the entry keeps
+      // the original information and in-text marking can match them. The meta
+      // table gates the one-time JS re-canonicalization pass of legacy rows
+      // (SQL migrations can't run the morphology module).
+      name: '2026091101_vocabulary_surface_forms',
+      sql: `
+        ALTER TABLE vocabulary ADD COLUMN surface_forms TEXT NOT NULL DEFAULT '[]';
+
+        CREATE TABLE IF NOT EXISTS vocabulary_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `,
+    },
   ],
 };
 

@@ -27,6 +27,9 @@ interface DialogProps {
   dismissible?: boolean;
   header?: ReactNode;
   title?: string;
+  /** Extra action node on the right of the default header, before the close
+   * button (desktop) / at the right edge (mobile). Ignored when `header` is set. */
+  titleExtra?: ReactNode;
   className?: string;
   bgClassName?: string;
   boxClassName?: string;
@@ -51,6 +54,7 @@ const Dialog: React.FC<DialogProps> = ({
   dismissible = true,
   header,
   title,
+  titleExtra,
   className,
   bgClassName,
   boxClassName,
@@ -292,27 +296,30 @@ const Dialog: React.FC<DialogProps> = ({
               <div className='z-15 pointer-events-none absolute inset-0 flex h-11 items-center justify-center'>
                 <span className='line-clamp-1 text-center font-bold'>{title ?? ''}</span>
               </div>
-              <button
-                aria-label={_('Close')}
-                aria-hidden={!isOpen}
-                onClick={onClose}
-                disabled={!dismissible}
-                className={
-                  'bg-base-300/65 btn btn-ghost btn-circle ml-auto hidden h-6 min-h-6 w-6 focus:outline-hidden sm:flex'
-                }
-              >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='1em'
-                  height='1em'
-                  viewBox='0 0 24 24'
+              <div className='ml-auto flex items-center gap-0.5'>
+                {titleExtra}
+                <button
+                  aria-label={_('Close')}
+                  aria-hidden={!isOpen}
+                  onClick={onClose}
+                  disabled={!dismissible}
+                  className={
+                    'bg-base-300/65 btn btn-ghost btn-circle hidden h-6 min-h-6 w-6 focus:outline-hidden sm:flex'
+                  }
                 >
-                  <path
-                    fill='currentColor'
-                    d='M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z'
-                  />
-                </svg>
-              </button>
+                  <svg
+                    xmlns='http://www.w3.org/2000/svg'
+                    width='1em'
+                    height='1em'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      fill='currentColor'
+                      d='M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z'
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -172,6 +172,8 @@ export interface VocabWordWire {
   wordKey: string;
   word: string;
   lang: string;
+  /** Inflected surface forms encountered under the canonical entry. */
+  surfaceForms?: string[];
   definitions: unknown[];
   primaryIndex: number;
   lastBookTitle: string | null;

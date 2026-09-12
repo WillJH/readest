@@ -9,10 +9,12 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { getEnabledProviders } from '@/services/dictionaries/registry';
 import { buildLookupCandidates } from '@/services/dictionaries/lookupCandidates';
 import { isTauriAppPlatform } from '@/services/environment';
+import { DEFAULT_TTS_CONFIG } from '@/services/constants';
 import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 import type { DefinitionSnapshot } from '@/types/vocabulary';
 import { sanitizeHtml } from '@/utils/sanitize';
@@ -66,13 +68,15 @@ export interface UseDictionaryResultsArgs {
   /**
    * Persist a word to the vocabulary book. The host (Annotator) owns the
    * selection/book context and the auto-add setting; `auto` marks the
-   * silent capture of the popup's initial lookup (no toast). Resolves
-   * `true` when the word was saved — drives the header's saved state.
+   * silent capture of the popup's initial lookup (no toast); `headword` is
+   * the lemma candidate a provider actually resolved through (e.g. `run`
+   * when looking up `running`), used to canonicalize the saved entry.
+   * Resolves `true` when the word was saved — drives the header's saved state.
    */
   onVocabularyCapture?: (
     word: string,
     definitions: DefinitionSnapshot[],
-    opts: { auto: boolean },
+    opts: { auto: boolean; headword?: string | null },
   ) => boolean | Promise<boolean>;
 }
 
@@ -99,6 +103,13 @@ export interface DictionaryResultsState {
   speakWord: () => void;
   /** Snapshot the loaded dictionaries' rendered entries for vocabulary capture. */
   collectDefinitionSnapshots: () => DefinitionSnapshot[];
+  /**
+   * The lemma candidate a dictionary resolved the current word through
+   * (`run` when `running` hit via `run`), or null on a direct hit — feeds
+   * save-time canonicalization. Stale once the user navigates within the
+   * entry (guarded by the load key).
+   */
+  getLookupHeadword: () => string | null;
   /** Words saved during this popup session (header shows the saved state). */
   savedVocabularyWords: ReadonlySet<string>;
   markVocabularySaved: (word: string) => void;
@@ -146,6 +157,33 @@ export function useDictionaryResults({
 
   const [historyStack, setHistoryStack] = useState<string[]>([word.trim()]);
   const currentWord = historyStack[historyStack.length - 1] ?? word.trim();
+  const langCode = typeof lang === 'string' ? lang : Array.isArray(lang) ? lang[0] : undefined;
+  const loadKey = loadKeyOf(currentWord, langCode);
+
+  // Which lookup candidate a provider actually resolved through, keyed to the
+  // load it belongs to. A lemma fallback hit (`running` answered by `run`)
+  // is the strongest signal for save-time canonicalization; a direct hit
+  // leaves it null so the morphology rules + lexicalized guard decide alone.
+  const lookupHitRef = useRef<{ loadKey: string; headword: string | null }>({
+    loadKey: '',
+    headword: null,
+  });
+  const recordLookupHit = useCallback(
+    (candidate: string) => {
+      const differs = candidate.trim().toLowerCase() !== currentWord.trim().toLowerCase();
+      const hit = lookupHitRef.current;
+      if (hit.loadKey !== loadKey) {
+        lookupHitRef.current = { loadKey, headword: differs ? candidate.trim() : null };
+      } else if (hit.headword === null && differs) {
+        hit.headword = candidate.trim();
+      }
+    },
+    [currentWord, loadKey],
+  );
+  const getLookupHeadword = useCallback(() => {
+    const hit = lookupHitRef.current;
+    return hit.loadKey === loadKey ? hit.headword : null;
+  }, [loadKey]);
 
   // Reset the history when the host reopens with a new word from outside
   // (selection change in the reader). A double-click selection can carry
@@ -181,17 +219,21 @@ export function useDictionaryResults({
     setHistoryStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
-  // Pronounce the current headword (#4876). `isSpeaking` covers both the
-  // Edge fetch and playback so the header button can show one active state.
+  // Pronounce the current headword (#4876) with the read-aloud
+  // configuration: same engine (the reader's preferred client), same
+  // preferred voice for the language, and the reader's global rate.
+  // `isSpeaking` covers the synth and playback so the header button can show
+  // one active state.
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const langCode = typeof lang === 'string' ? lang : Array.isArray(lang) ? lang[0] : undefined;
-  const loadKey = loadKeyOf(currentWord, langCode);
   const speakWord = useCallback(() => {
     // Warm the audio context synchronously inside the click gesture; the
-    // synth/play happens after a network await, outside the gesture window.
+    // Edge synth/play happens after a network await, outside the window.
     warmWordAudio();
     setIsSpeaking(true);
-    void pronounceWord(currentWord, langCode, { appService }, (status) => {
+    const rate =
+      useSettingsStore.getState().settings?.globalViewSettings?.ttsRate ??
+      DEFAULT_TTS_CONFIG.ttsRate;
+    void pronounceWord(currentWord, langCode, { appService, rate }, (status) => {
       if (status !== 'playing') setIsSpeaking(false);
     });
   }, [currentWord, langCode, appService]);
@@ -313,7 +355,10 @@ export function useDictionaryResults({
                 fg: themeCode.fg,
               });
               if (controller.signal.aborted) return;
-              if (outcome.ok || outcome.reason !== 'empty') break;
+              if (outcome.ok || outcome.reason !== 'empty') {
+                if (outcome.ok) recordLookupHit(candidate);
+                break;
+              }
             }
           }
         } catch (err) {
@@ -410,9 +455,12 @@ export function useDictionaryResults({
       const capture = onVocabularyCapture;
       if (!capture || definitionProviders.length === 0) return false;
       autoCapturedRef.current = loadKeyOf(captureWord, langCode);
-      void Promise.resolve(capture(captureWord, collectDefinitionSnapshots(), { auto: true })).then(
-        (saved) => saved && markVocabularySaved(captureWord),
-      );
+      void Promise.resolve(
+        capture(captureWord, collectDefinitionSnapshots(), {
+          auto: true,
+          headword: getLookupHeadword(),
+        }),
+      ).then((saved) => saved && markVocabularySaved(captureWord));
       return true;
     },
     [
@@ -421,6 +469,7 @@ export function useDictionaryResults({
       langCode,
       collectDefinitionSnapshots,
       markVocabularySaved,
+      getLookupHeadword,
     ],
   );
   useEffect(() => {
@@ -477,6 +526,7 @@ export function useDictionaryResults({
     currentWord,
     canGoBack,
     goBack,
+    getLookupHeadword,
     visibleDefinitionProviders,
     webSearchProviders,
     webSearchFirst,
@@ -516,7 +566,11 @@ interface DictionaryResultsHeaderProps {
 export function vocabularyHeaderProps(
   state: Pick<
     DictionaryResultsState,
-    'currentWord' | 'collectDefinitionSnapshots' | 'savedVocabularyWords' | 'markVocabularySaved'
+    | 'currentWord'
+    | 'collectDefinitionSnapshots'
+    | 'getLookupHeadword'
+    | 'savedVocabularyWords'
+    | 'markVocabularySaved'
   >,
   onVocabularyCapture?: UseDictionaryResultsArgs['onVocabularyCapture'],
 ): Pick<DictionaryResultsHeaderProps, 'onAddToVocabulary' | 'vocabularySaved'> {
@@ -526,6 +580,7 @@ export function vocabularyHeaderProps(
       void Promise.resolve(
         onVocabularyCapture(state.currentWord, state.collectDefinitionSnapshots(), {
           auto: false,
+          headword: state.getLookupHeadword(),
         }),
       ).then((saved) => saved && state.markVocabularySaved(state.currentWord));
     },

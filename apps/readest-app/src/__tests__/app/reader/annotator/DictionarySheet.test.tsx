@@ -79,8 +79,8 @@ vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string) => s,
 }));
 
-// The word pronouncer talks to Edge/WebAudio; stub it so the sheet's speak
-// button can be exercised without real audio. (#4876)
+// The word pronouncer talks to Edge/WebAudio or the platform speech client;
+// stub it so the sheet's speak button can be exercised without real audio. (#4876)
 vi.mock('@/services/tts/wordPronouncer', () => ({
   pronounceWord: vi.fn().mockResolvedValue(undefined),
   warmWordAudio: vi.fn(),
@@ -291,7 +291,7 @@ describe('DictionarySheet — header', () => {
 });
 
 describe('DictionarySheet — speak button', () => {
-  it('warms audio and pronounces the current word when the speaker is tapped', async () => {
+  it('warms audio and pronounces the current word at the reader rate when the speaker is tapped', async () => {
     providersForNextRender.push(buildRealStarDictProvider());
     renderSheet({ word: 'hello', lang: 'en' });
 
@@ -302,7 +302,7 @@ describe('DictionarySheet — speak button', () => {
     expect(pronounceWord).toHaveBeenCalledWith(
       'hello',
       'en',
-      expect.any(Object),
+      expect.objectContaining({ rate: expect.any(Number) }),
       expect.any(Function),
     );
   });

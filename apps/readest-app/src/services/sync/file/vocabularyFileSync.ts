@@ -57,6 +57,7 @@ const exportWords = async (db: VocabularyDb): Promise<VocabWordWire[]> => {
     wordKey: w.word.toLowerCase(),
     word: w.word,
     lang: w.lang ?? '',
+    surfaceForms: w.surfaceForms,
     definitions: w.definitions,
     primaryIndex: w.primaryIndex,
     lastBookTitle: w.lastBookTitle ?? null,
@@ -88,6 +89,7 @@ const applyRemoteWord = async (db: VocabularyDb, word: VocabWordWire): Promise<v
     lang: word.lang || null,
     definitions: word.definitions as DefinitionSnapshotLike[],
     context: null,
+    surfaceForms: word.surfaceForms ?? [],
   });
   if (word.contexts.length > 0) {
     // saveWord merges one context per call; fold in the rest the same way

@@ -4,16 +4,21 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useState } from 'react';
 import { LuLocateFixed, LuTrash2 } from 'react-icons/lu';
+import { MdVolumeUp } from 'react-icons/md';
 
 import Dialog from '@/components/Dialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
 import { useReaderStore } from '@/store/readerStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { getBookProgress } from '@/store/readerProgressStore';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { VocabularyDb } from '@/services/vocabulary/vocabularyDb';
+import { DEFAULT_TTS_CONFIG } from '@/services/constants';
+import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 import type { VocabularyContext, VocabularyWordDetail } from '@/types/vocabulary';
 import { eventDispatcher } from '@/utils/event';
+import { inferLangFromScript } from '@/utils/lang';
 
 interface VocabularyDetailDialogProps {
   wordId: string;
@@ -28,6 +33,8 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
   const { removeWord } = useVocabularyStore();
 
   const [detail, setDetail] = useState<VocabularyWordDetail | null>(null);
+  // 'word' or a context id — whichever pronunciation is currently playing.
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +50,73 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
       cancelled = true;
     };
   }, [appService, wordId]);
+
+  // All pronunciations in this dialog mirror the read-aloud configuration:
+  // same engine (the reader's preferred client), same preferred voice per
+  // language, and the reader's global rate.
+  const readerRate = () =>
+    useSettingsStore.getState().settings?.globalViewSettings?.ttsRate ?? DEFAULT_TTS_CONFIG.ttsRate;
+
+  // Auto-pronounce once when a word's detail arrives: firing as the dialog
+  // opens overlaps the synth latency. Keyed on the word identity — not
+  // `detail` — so switching the primary definition doesn't re-trigger it.
+  // The audio context was already unlocked by the opening click (see
+  // warmWordAudio at the Annotator/VocabularyView call sites).
+  const detailWordId = detail?.id;
+  const detailWord = detail?.word;
+  const detailLang = detail?.lang;
+  useEffect(() => {
+    if (!detailWordId || !detailWord || !appService) return;
+    setSpeakingKey('word');
+    void pronounceWord(
+      detailWord,
+      detailLang ?? undefined,
+      { appService, rate: readerRate() },
+      (status) => {
+        if (status !== 'playing') setSpeakingKey(null);
+      },
+    );
+  }, [appService, detailWordId, detailWord, detailLang]);
+
+  // Stop any in-flight pronunciation when the dialog closes or switches words.
+  useEffect(() => {
+    return () => cancelWordPronounce();
+  }, []);
+  useEffect(() => {
+    cancelWordPronounce();
+    setSpeakingKey(null);
+  }, [wordId]);
+
+  const speakWord = useCallback(() => {
+    if (!detail || !appService) return;
+    // Warm the audio context synchronously inside the click gesture; the
+    // Edge synth/play happens after a network await, outside the window.
+    warmWordAudio();
+    setSpeakingKey('word');
+    void pronounceWord(
+      detail.word,
+      detail.lang ?? undefined,
+      { appService, rate: readerRate() },
+      (status) => {
+        if (status !== 'playing') setSpeakingKey(null);
+      },
+    );
+  }, [appService, detail]);
+
+  const speakContext = useCallback(
+    (context: VocabularyContext) => {
+      if (!appService) return;
+      warmWordAudio();
+      setSpeakingKey(context.id);
+      // A context can come from a book written in another script than the
+      // headword's language; let the sentence itself decide zh/ja/ko.
+      const lang = inferLangFromScript(context.sentence, detail?.lang ?? 'en');
+      void pronounceWord(context.sentence, lang, { appService, rate: readerRate() }, (status) => {
+        if (status !== 'playing') setSpeakingKey(null);
+      });
+    },
+    [appService, detail?.lang],
+  );
 
   const handleSetPrimary = useCallback(
     async (index: number) => {
@@ -97,11 +171,40 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
       isOpen
       onClose={onClose}
       title={detail?.word ?? ''}
+      titleExtra={
+        detail ? (
+          <button
+            type='button'
+            aria-label={_('Speak')}
+            title={_('Speak')}
+            aria-pressed={speakingKey === 'word'}
+            onClick={speakWord}
+            className={clsx(
+              'btn btn-ghost btn-square btn-xs shrink-0',
+              speakingKey === 'word'
+                ? 'text-base-content not-eink:animate-pulse'
+                : 'text-base-content/60 hover:text-base-content not-eink:hover:bg-base-200/60',
+            )}
+          >
+            <MdVolumeUp size={18} />
+          </button>
+        ) : undefined
+      }
       snapHeight={0.7}
       boxClassName='sm:min-w-[460px]!'
     >
       {detail && (
         <div className='flex flex-col gap-4'>
+          {detail.surfaceForms.length > 0 && (
+            <p className='text-base-content/50 flex flex-wrap items-center gap-1.5 text-xs'>
+              <span>{_('Encountered forms')}</span>
+              {detail.surfaceForms.map((form) => (
+                <span key={form} className='border-base-content/15 rounded-full border px-2 py-0.5'>
+                  {form}
+                </span>
+              ))}
+            </p>
+          )}
           {detail.definitions.length === 0 ? (
             <p className='text-base-content/50 text-sm'>
               {_('No definition was captured for this word')}
@@ -199,6 +302,34 @@ const VocabularyDetailDialog: React.FC<VocabularyDetailDialogProps> = ({ wordId,
                           {jumpable && (
                             <LuLocateFixed className='text-primary/60 ms-auto shrink-0' size={13} />
                           )}
+                          <button
+                            type='button'
+                            aria-label={_('Speak')}
+                            title={_('Speak')}
+                            aria-pressed={speakingKey === context.id}
+                            onClick={(e) => {
+                              // Keep the tap on the card itself (jump to
+                              // context) from also firing.
+                              e.stopPropagation();
+                              speakContext(context);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                speakContext(context);
+                              }
+                            }}
+                            className={clsx(
+                              'btn btn-ghost btn-square btn-xs shrink-0',
+                              !jumpable && 'ms-auto',
+                              speakingKey === context.id
+                                ? 'text-primary not-eink:animate-pulse'
+                                : 'text-base-content/50 hover:text-base-content not-eink:hover:bg-base-200/60',
+                            )}
+                          >
+                            <MdVolumeUp size={15} />
+                          </button>
                         </p>
                       </div>
                     </li>
